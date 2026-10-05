@@ -1,4 +1,4 @@
-# Inventário de Armazém
+# Auditoria de Armazém
 
 App de contagem e auditoria de endereços. É uma página única (`index.html`), sem servidor.
 
