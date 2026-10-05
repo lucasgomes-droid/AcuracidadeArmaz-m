@@ -862,8 +862,8 @@ const kgAj=a=>a.tipo==='kg'?Math.abs(a.fis-a.sist):Number(a.kg??(estoque[a.ua]&&
 function serieDias(fs){
   const m={};
   (fs||finalizadas()).forEach(c=>{const k=diaKey(c.fim);
-    const x=m[k]||(m[k]={k,fim:c.fim,n:0,e:0,E:0,p:0,P:0});x.n++;x.e+=c.resumo.endOk;x.E+=c.resumo.escopo;x.p+=c.resumo.kgCerto||0;x.P+=(c.resumo.kgEsc||0)+(c.resumo.kgFora||0)});
-  return Object.values(m).sort((a,b)=>a.k.localeCompare(b.k)).map(x=>({k:x.k,dia:diaf(x.fim),n:x.n,uas:x.E,kgAud:x.P,end:pct(x.e,x.E),kg:pct(x.p,x.P)}));
+    const x=m[k]||(m[k]={k,fim:c.fim,n:0,e:0,E:0,p:0,P:0,ne:0,nn:0,ns:0});x.n++;x.ne+=c.resumo.nEnd||0;x.nn+=c.resumo.nNao||0;x.ns+=c.resumo.nSobra||0;x.e+=c.resumo.endOk;x.E+=c.resumo.escopo;x.p+=c.resumo.kgCerto||0;x.P+=(c.resumo.kgEsc||0)+(c.resumo.kgFora||0)});
+  return Object.values(m).sort((a,b)=>a.k.localeCompare(b.k)).map(x=>({k:x.k,dia:diaf(x.fim),n:x.n,uas:x.E,kgAud:x.P,ne:x.ne,nn:x.nn,ns:x.ns,div:x.E-x.e,kgDiv:x.P-x.p,end:pct(x.e,x.E),kg:pct(x.p,x.P)}));
 }
 /* tudo que a tela e o relatório em PDF mostram sai daqui, para os dois sempre baterem */
 function dadosAc(o){
@@ -1027,13 +1027,19 @@ function gerarPdf(D){
   const pares=rows=>{const lw=70,bw=LW-lw-30,h=5.2;rows.forEach(r=>{doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(...K);doc.text(r.l,M,y+h);
       [[r.a,G,'Atual'],[r.b,[170,176,182],'Anterior']].forEach(([v,cor,nm],i)=>{const yy=y+i*(h+1.2);doc.setFillColor(236,236,234);doc.rect(M+lw,yy,bw,h,'F');doc.setFillColor(...cor);if(v>0)doc.rect(M+lw,yy,Math.max(1,bw*Math.min(100,v)/100),h,'F');
         doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...K);doc.text(nm+' '+pctf(v),M+lw+bw+3,yy+h-1.2)});y+=2*h+7});y+=3};
-  const curva=(pts,meta)=>{const x0=M+14,x1=W-M-6,y0=y+4,y1=y+84,vs=pts.flatMap(p=>[p.end,p.kg]).filter(v=>v!=null).concat([meta]),lo=Math.max(0,Math.floor((Math.min(...vs)-5)/10)*10);
+  const curva=(pts,meta)=>{const x0=M+14,x1=W-M-6,y0=y+4,y1=y+60,vs=pts.flatMap(p=>[p.end,p.kg]).filter(v=>v!=null).concat([meta]),lo=Math.max(0,Math.floor((Math.min(...vs)-5)/10)*10);
     const X=i=>pts.length===1?(x0+x1)/2:x0+i*(x1-x0)/(pts.length-1),Y=v=>y0+(100-v)*(y1-y0)/(100-lo);doc.setFontSize(8.5);doc.setLineWidth(0.2);
     for(let v=lo;v<=100;v+=(100-lo)>50?20:10){doc.setDrawColor(215,215,215);doc.line(x0,Y(v),x1,Y(v));doc.setTextColor(...C);doc.text(v+'%',x0-3,Y(v)+1.2,{align:'right'})}
     doc.setDrawColor(...C);doc.setLineDashPattern([1.5,1.2],0);doc.line(x0,Y(meta),x1,Y(meta));doc.setLineDashPattern([],0);doc.text('Meta '+nf(meta)+'%',x1,Y(meta)-1.5,{align:'right'});
     const passo=Math.ceil(pts.length/14);pts.forEach((p,i)=>{if(i%passo===0)doc.text(p.dia,X(i),y1+5,{align:'center'})});
-    [['end',[42,120,214]],['kg',O]].forEach(([k,cor])=>{doc.setDrawColor(...cor);doc.setFillColor(...cor);doc.setLineWidth(0.7);let ant=null;pts.forEach((p,i)=>{if(p[k]==null){ant=null;return}if(ant)doc.line(ant[0],ant[1],X(i),Y(p[k]));ant=[X(i),Y(p[k])];doc.circle(ant[0],ant[1],1.1,'F')})});
+    [['end',[42,120,214]],['kg',O]].forEach(([k,cor])=>{doc.setDrawColor(...cor);doc.setFillColor(...cor);doc.setLineWidth(0.7);let ant=null;pts.forEach((p,i)=>{if(p[k]==null){ant=null;return}if(ant)doc.line(ant[0],ant[1],X(i),Y(p[k]));ant=[X(i),Y(p[k])];doc.circle(ant[0],ant[1],1.1,'F');if(pts.length<=12){doc.setFontSize(8);doc.setTextColor(...cor);doc.text(pctf(p[k]),ant[0],ant[1]+(k==='end'?4.2:-2.2),{align:'center'})}})});
     doc.setLineWidth(0.2);y=y1+12;doc.setFontSize(9);doc.setFillColor(42,120,214);doc.rect(x0,y-2.6,3,3,'F');doc.setTextColor(...K);doc.text('Por UA',x0+4.5,y);doc.setFillColor(...O);doc.rect(x0+24,y-2.6,3,3,'F');doc.text('Por kg',x0+28.5,y);y+=8};
+  const colunas=pts=>{const S=[['ne','Endereço divergente',O],['nn','Não encontradas',R],['ns','Sem saldo no sistema',[120,40,40]]],x0=M+14,x1=W-M-6,y0=y+6,y1=y+50,mx=Math.max(1,...pts.flatMap(p=>S.map(s=>p[s[0]]))),gw=(x1-x0)/pts.length,bw=Math.min(9,gw*0.8/3);
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...K);doc.text('Divergências por dia (UAs)',M,y+2);
+    doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(x0,y1,x1,y1);const passo=Math.ceil(pts.length/14);
+    pts.forEach((p,i)=>{const cx=x0+gw*(i+0.5);S.forEach((s,j)=>{const v=p[s[0]],h=(y1-y0-4)*v/mx,x=cx+(j-1.5)*bw;if(v>0){doc.setFillColor(...s[2]);doc.rect(x,y1-h,bw-0.6,h,'F');if(pts.length<=14){doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...K);doc.text(String(v),x+(bw-0.6)/2,y1-h-1.2,{align:'center'})}}});
+      if(i%passo===0){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...C);doc.text(p.dia,cx,y1+5,{align:'center'})}});
+    y=y1+12;let x=x0;doc.setFont('helvetica','normal');doc.setFontSize(9);S.forEach(s=>{doc.setFillColor(...s[2]);doc.rect(x,y-2.6,3,3,'F');doc.setTextColor(...K);doc.text(s[1],x+4.5,y);x+=doc.getTextWidth(s[1])+12});y+=8};
   /* capa */
   base();doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(...G);doc.text('ICC BRAZIL',M,72);
   doc.setFontSize(40);doc.setTextColor(...K);doc.text('Auditoria de Armazém',M,92);
@@ -1090,8 +1096,8 @@ function gerarPdf(D){
   if(by('kg').length){pag('UAs com peso divergente');
     tabela(['UA','Item','Kg no sistema','Kg físico','Diferença','Situação'],by('kg').map(a=>[a.ua,descAj(a),kgf(a.sist),kgf(a.fis),sinal(a.fis-a.sist),sitAj(a)]),corStatus(5))}
   if(D.mots.length){pag('Causas das divergências','Motivos informados na aba Ajustes.');barras(D.mots.map(x=>({l:x.k,v:x.n,t:String(x.n)})),O)}
-  if(D.serie.length>1){pag('Evolução da acuracidade por dia');curva(D.serie,D.metas[D.mt]==null?98:D.metas[D.mt]);pag('Evolução da acuracidade por dia - números');
-    tabela(['Dia','Auditorias','UAs auditadas','Kg auditados','Acuracidade por UA','Acuracidade por kg'],D.serie.map(p=>[brDia(p.k),p.n,p.uas,kgf(p.kgAud),pctf(p.end),pctf(p.kg)]))}
+  if(D.serie.length>1){pag('Evolução da acuracidade por dia');curva(D.serie,D.metas[D.mt]==null?98:D.metas[D.mt]);colunas(D.serie);pag('Evolução da acuracidade por dia - números');
+    tabela(['Dia','Auditorias','UAs auditadas','Por UA','Por kg','UAs divergentes','Kg divergente','Endereço div.','Não encontradas','Sem saldo'],D.serie.map(p=>[brDia(p.k),p.n,p.uas,pctf(p.end),pctf(p.kg),p.div,kgf(p.kgDiv),p.ne,p.nn,p.ns]))}
   if(D.fs.length>1){pag('Acuracidade por auditoria','Acuracidade por UA de cada auditoria do período, da mais recente para a mais antiga.');
     barras(D.fs.slice(0,12).map(c=>{const p=pct(c.resumo.endOk,c.resumo.escopo);return{l:titulo(c)+' '+diaf(c.fim),v:p||0,max:100,t:pctf(p)+'  ('+uasTxt(c.resumo.escopo)+')',cor:p>=D.metas.ua?V:R}}))}
   pag(D.so?'Resumo da auditoria':'Auditorias realizadas');
