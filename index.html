@@ -161,6 +161,8 @@ td.nw{white-space:nowrap}
 .bar.full i{background:var(--accent)}
 #resBox .stats{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
 .notice{background:var(--crit-bg);color:var(--crit);padding:10px 14px;border-radius:8px;font-size:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.bip{padding:12px 14px;border-radius:8px;font-weight:600;font-size:16px;background:var(--sunk);color:var(--muted)}
+.bip.ok{background:var(--ok-bg);color:var(--ok)}.bip.div{background:var(--warn-bg);color:var(--warn)}.bip.sem{background:var(--crit-bg);color:var(--crit)}
 .notice.warn{background:var(--warn-bg);color:var(--warn)}
 .progress{font:700 30px/1 var(--display);font-variant-numeric:tabular-nums}
 .items{display:flex;flex-direction:column}
@@ -208,7 +210,7 @@ td.nw{white-space:nowrap}
   <main class="wrap">
   <header class="top">
     <div><h1 id="pgTit">Contar</h1><p class="sub" id="pgSub">Contagem e recontagem no coletor</p></div>
-    <span class="pill" title="O saldo vem do WMS. Contagens e ajustes ficam só neste aparelho e não são gravados no WMS.">Consulta ao WMS · dados guardados neste aparelho</span>
+    <span class="pill" title="O saldo vem do WMS. Contagens e ajustes ficam só neste aparelho e não são gravados no WMS.">Ligado ao WMS · consulta e movimentação de UA</span>
   </header>
   <div class="notice" id="semDados" hidden><span id="semDadosTxt" class="grow"></span><button class="btn ghost small" type="button" id="btnPerm" hidden>Abrir permissões</button></div>
 
@@ -244,6 +246,7 @@ td.nw{white-space:nowrap}
         <label class="check"><input type="checkbox" id="confKg">Conferir peso</label>
         <label id="kgLbl" hidden>Peso físico (kg)<input type="text" id="inKg" inputmode="decimal" placeholder="0,0"></label>
         <button class="btn" type="submit">Registrar UA</button>
+        <div class="bip" id="ultBip" role="status" hidden></div>
       </form>
       <p class="sub" id="fonteAviso"></p>
       <div class="items" id="contItens"></div>
@@ -318,7 +321,7 @@ td.nw{white-space:nowrap}
       <button class="btn ghost small" type="button" id="btnLoteNao">Voltar</button>
     </div>
     <div class="panel"><div class="scroll" id="ajLista"></div></div>
-    <p class="sub">Ajustar grava no sistema o que foi encontrado no físico. Recontar envia a UA para a aba Contar, para a outra pessoa conferir. UA não encontrada e UA sem saldo não têm ajuste automático.</p>
+    <p class="sub" id="ajNota">Ajustar grava no sistema o que foi encontrado no físico. Recontar envia a UA para a aba Contar, para a outra pessoa conferir. UA não encontrada e UA sem saldo não têm ajuste automático.</p>
   </section>
 
   <!-- ACURACIDADE -->
@@ -370,6 +373,8 @@ td.nw{white-space:nowrap}
           <label>Depositante<input type="text" class="sm" id="cfDep"></label>
           <button class="btn ghost small" type="button" id="cfSalvar" style="align-self:flex-end">Salvar servidor</button>
         </div></details>
+      <div class="row"><label style="flex:0 1 260px">Usuário do MLW para movimentações<input type="text" id="wmsUsuario" placeholder="ex.: lucas.gomes" autocapitalize="none"></label>
+        <button class="btn ghost" type="button" id="wmsUsuSalvar">Salvar usuário</button></div>
       <div class="row"><label style="flex:0 1 260px">Seu nome neste aparelho<input type="text" id="opNome" placeholder="Ex.: Lucas"></label>
         <button class="btn ghost" type="button" id="opSalvar">Salvar nome</button></div>
     </div>
@@ -499,8 +504,8 @@ function renderCont(){
   $('novaBox').hidden=!!cur; $('contBox').hidden=!cur;
   $('resBox').hidden=!!cur||!ultimo;
   if(ultimo&&!cur)$('resBox').innerHTML=auditoria(ultimo);
-  if(!cur) return;
-  $('fonteAviso').textContent=aoVivo()?'A conferência com o sistema aparece ao finalizar. UA sem saldo é avisada na hora, sem parar a bipagem.':'Sem chave de acesso do WMS: a conferência usa só o estoque carregado no app. Informe a chave na aba Armazém.';
+  if(!cur){$('ultBip').hidden=true;return}
+  $('fonteAviso').textContent=aoVivo()?'Cada UA é conferida no WMS na hora da bipagem. O resumo completo aparece ao finalizar.':'Sem chave de acesso do WMS: a conferência usa só o estoque carregado no app. Informe a chave na aba Armazém.';
   const fixo=cur.por==='endereco'&&!!cur.valor;$('endLbl').hidden=fixo;if(fixo)$('inEnd').value=cur.valor;
   const its=Object.entries(cur.itens).sort((a,b)=>b[1].hora.localeCompare(a[1].hora));
   $('contTit').textContent=titulo(cur);
@@ -509,7 +514,7 @@ function renderCont(){
   $('contBar').hidden=!tot;$('contBar').firstElementChild.style.width=(tot?Math.min(100,its.length/tot*100):0)+'%';
   $('kgLbl').hidden=!$('confKg').checked;
   const vz=Object.keys(cur.vazios||{});
-  $('contItens').innerHTML=(its.length||vz.length)?its.map(([ua,i])=>`<div><span class="ua">${esc(ua)}</span>${fixo?'':addr(i.endereco)}${i.kg==null?'':'<span>'+kgf(i.kg)+' kg</span>'}${i.sem?(aoVivo()?'<span class="chip crit">UA sem saldo no sistema</span>':'<span class="chip off">Fora do estoque carregado</span>'):''}<span class="sp"></span>
+  $('contItens').innerHTML=(its.length||vz.length)?its.map(([ua,i])=>`<div><span class="ua">${esc(ua)}</span>${fixo?'':addr(i.endereco)}${i.kg==null?'':'<span>'+kgf(i.kg)+' kg</span>'}${chipSt(i)}<span class="sp"></span>
     <button class="btn ghost small" type="button" data-rm="${esc(ua)}">Remover</button></div>`).join('')+
     vz.map(e=>`<div>${addr(e)}<span class="sub">endereço vazio</span></div>`).join('')
     :'<p class="empty">Nenhuma UA registrada ainda.</p>';
@@ -517,10 +522,15 @@ function renderCont(){
 }
 function aplicaSaldo(r){if(!r)return;(r.removidas||[]).forEach(k=>{delete estoque[k]});Object.assign(estoque,r.docs||{})}
 async function sinc(ends,uas){if(!window.__sincSaldo)return;try{aplicaSaldo(await window.__sincSaldo(ends,uas))}catch(e){}}
+const txtSt=i=>!i.st?'consultando…':i.st==='ok'?'Correto':i.st==='div'?'Divergente: no sistema está em '+i.sis:(aoVivo()?'UA sem saldo no sistema':'Fora do estoque carregado');
+const chipSt=i=>`<span class="chip ${!i.st?'off':i.st==='ok'?'ok':i.st==='div'?'warn':(aoVivo()?'crit':'off')}">${esc(txtSt(i))}</span>`;
+function mostraBip(ua){const i=cur&&cur.itens[ua],b=$('ultBip');if(!i){b.hidden=true;return}b.hidden=false;b.className='bip '+(i.st||'');b.textContent='UA '+ua+' · '+txtSt(i)}
 async function verificaUa(c,ua){
   await sinc([],[ua]);
   const i=c.itens[ua];if(!i||c.status!=='aberta')return;
-  const sem=!estoque[ua];if(!!i.sem!==sem){i.sem=sem;putContagem(c);if(cur===c)renderCont()}
+  const s=estoque[ua],st=!s?'sem':s.endereco===i.endereco?'ok':'div',sis=s?s.endereco:'';
+  if(i.st!==st||i.sis!==sis){i.st=st;i.sis=sis;i.sem=st==='sem';putContagem(c)}
+  if(cur===c){renderCont();mostraBip(ua)}
 }
 function iniciar(){
   const valor=por==='endereco'?limpa($('novoEnd').value):$('valorSel').value;
@@ -544,7 +554,7 @@ function registrar(){
   cur.itens[ua]={endereco:e,kg,hora:iso()};
   if(cur.vazios) delete cur.vazios[e];
   putContagem(cur); $('inUa').value='';bipPrev=0; $('inKg').value=''; $('inEnd').value=e;
-  renderCont(); $('inUa').focus(); verificaUa(cur,ua);
+  renderCont(); mostraBip(ua); $('inUa').focus(); verificaUa(cur,ua);
 }
 function finalizar(){
   const c=cur,escp=escopo(c),noEsc=new Set(escp.map(s=>s.ua)),its=c.itens,agora=iso(),T=tol();
@@ -632,6 +642,7 @@ function renderAj(){
   $('nPend').hidden=!nAj;$('nPend').textContent=nAj;
   document.querySelectorAll('#ajFiltro button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===ajF));
   const ab=ajF==='aberto';
+  if(aoVivo())$('ajNota').textContent='Movimentar no WMS transfere a UA do endereço do sistema para o endereço físico, valida origem e destino antes e confere o resultado depois. Se a UA já estiver no endereço certo, a divergência só é encerrada.';
   const base=ab?abertos:all.filter(a=>!aberto(a));
   $('ajTipo').innerHTML=[['','Todas'],['end','Endereço'],['nao','Não encontrada'],['sobra','Sem saldo'],['kg','Peso']].map(([k,t])=>`<button type="button" data-t="${k}" aria-pressed="${ajT===k}">${t} (${k?base.filter(a=>a.tipo===k).length:base.length})</button>`).join('');
   const lista=base.filter(a=>!ajT||a.tipo===ajT).sort((a,b)=>(b.em||b.criado).localeCompare(a.em||a.criado));
@@ -648,11 +659,11 @@ function renderAj(){
     if(ab){
       mot=rec?'':`<select class="sm" aria-label="Motivo de ${esc(a.ua)}" data-mot="${id}"><option value="">Sem motivo</option>${MOTIVOS.map(m=>`<option ${a.motivo===m?'selected':''}>${m}</option>`).join('')}</select>`;
       acao=rec?'<span class="chip warn">Aguardando recontagem</span>'
-        :(auto(a)?`<button class="btn small" type="button" data-aj="${id}">Ajustar</button> `:(a.status==='confirmada'?`<button class="btn small" type="button" data-aj="${id}">Encerrar</button> `:''))
+        :(auto(a)?`<button class="btn small" type="button" data-aj="${id}">${aoVivo()&&a.tipo==='end'?'Movimentar no WMS':'Ajustar'}</button> `:(a.status==='confirmada'?`<button class="btn small" type="button" data-aj="${id}">Encerrar</button> `:''))
          +(a.status==='pendente'?`<button class="btn ghost small" type="button" data-rc="${id}">Recontar</button>`:'<span class="chip off">Recontada</span>');
     }else{
       mot=esc(a.motivo||'');
-      const lab=a.status==='sem_divergencia'?['Sem divergência na recontagem','ok']:[auto(a)?'Ajustado':'Encerrada','ok'];
+      const lab=a.status==='sem_divergencia'?['Sem divergência na recontagem','ok']:[a.movido?'Movimentada no WMS':auto(a)?'Ajustado':'Encerrada','ok'];
       acao=`<span class="chip ${lab[1]}">${lab[0]}</span> <span class="sub">${esc(nome(a.por||a.recPor))} ${dtf(a.em)}</span>`;
     }
     return `<tr>${ab?`<td>${auto(a)&&!rec?`<input type="checkbox" aria-label="Selecionar ${esc(a.ua)}" data-sel="${id}" ${sel.has(a.id)?'checked':''}>`:''}</td>`:''}
@@ -662,8 +673,19 @@ function renderAj(){
       <td class="num">${kg?sinal(dif)+' kg':''}</td><td>${mot}</td>
       <td class="sub nw">${c?esc(titulo(c))+'<br>'+dtf(c.fim):''}</td><td class="nw">${acao}</td></tr>`}).join('')+'</tbody></table>';
 }
-function ajustar(id){
-  const a=ajustes[id]; if(!a||!aberto(a)||a.status==='recontar') return;
+async function ajustar(id){
+  const a=ajustes[id]; if(!a||!aberto(a)||a.status==='recontar') return false;
+  if(aoVivo()&&a.tipo==='end'){
+    const fecha=m=>{a.status='ajustado';a.movido=!!m;a.por=uid||'';a.em=iso();sel.delete(id);putAjuste(a);return true};
+    await sinc([],[a.ua]);let s0=estoque[a.ua];
+    if(s0&&s0.endereco===a.fis)return fecha(false);
+    if(!s0){toast('A UA '+a.ua+' não tem saldo no WMS. Não há o que movimentar.');return false}
+    if(!window.__moverUa){toast('Esta versão não movimenta no WMS.');return false}
+    const de=s0.endereco;
+    try{await window.__moverUa(a.ua,de,a.fis)}catch(e){toast(e.message||'O WMS não aceitou a movimentação.');return false}
+    await sinc([],[a.ua]);s0=estoque[a.ua];
+    if(s0&&s0.endereco===a.fis){a.de=de;return fecha(true)}
+    toast('O WMS recebeu o pedido, mas a UA '+a.ua+' ainda aparece em '+(s0?s0.endereco:'nenhum endereço')+'. Confira de novo em instantes.');return false}
   const s=estoque[a.ua];
   if(auto(a)&&s){ if(a.tipo==='end') s.endereco=a.fis; else s.kg=a.fis; putEstoque(s); }
   a.status='ajustado';a.por=uid||'';a.em=iso();sel.delete(id);putAjuste(a);
@@ -875,7 +897,8 @@ document.addEventListener('click',ev=>{
   else if(d.prob&&cur){const e=limpa($('inEnd').value);if(!e)return;cur.org=cur.org||{};const s=new Set(cur.org[e]||[]);s.has(d.prob)?s.delete(d.prob):s.add(d.prob);
     if(s.size)cur.org[e]=[...s];else delete cur.org[e];putContagem(cur);renderOrg()}
   else if(d.rec){reconId=d.rec;renderRec();const a=ajustes[reconId];(a&&a.tipo==='kg'?$('rcKg'):$('rcEnd')).focus()}
-  else if(d.aj){ajustar(d.aj);renderAj();renderAz();renderAc();renderPlano();toast('Registrado.')}
+  else if(d.aj&&aoVivo()&&ajustes[d.aj]&&ajustes[d.aj].tipo==='end'){sel.clear();sel.add(d.aj);renderAj();$('btnLote').click()}
+  else if(d.aj){ajustar(d.aj).then(ok=>{renderAj();renderAz();renderAc();renderPlano();if(ok!==false)toast('Registrado.')})}
   else if(d.rc){const a=ajustes[d.rc];if(a&&a.status==='pendente'){a.status='recontar';sel.delete(a.id);putAjuste(a);renderAj();renderRec();renderPlano();toast('Enviada para recontagem na aba Contar.')}}
 });
 document.addEventListener('change',ev=>{const c=ev.target,d=c.dataset||{};
@@ -917,9 +940,11 @@ $('btnFimSim').onclick=async()=>{const b=$('btnFimSim');
 $('btnCancela').onclick=()=>{const id=cur.id;delete contagens[id];apaga('contagens',id);cur=null;$('fimConf').hidden=true;renderCont();renderNova();toast('Contagem cancelada.')};
 $('recForm').addEventListener('submit',ev=>{ev.preventDefault();gravaRecont()});
 $('rcVolta').onclick=()=>{reconId=null;renderRec()};
-$('btnLote').onclick=()=>{$('loteTxt').textContent=`Gravar no sistema o físico de ${sel.size} UA${sel.size>1?'s':''}?`;$('loteConf').hidden=false};
+$('btnLote').onclick=()=>{const l=[...sel].map(i=>ajustes[i]).filter(Boolean);
+  $('loteTxt').textContent=aoVivo()?(l.length===1&&l[0].tipo==='end'?`Movimentar a UA ${l[0].ua} no WMS para ${l[0].fis}? Isso altera o estoque real.`:`Movimentar ${l.length} UAs no WMS para o endereço físico de cada uma? Isso altera o estoque real.`):`Gravar no sistema o físico de ${sel.size} UA${sel.size>1?'s':''}?`;
+  $('loteConf').hidden=false;$('loteConf').scrollIntoView({block:'center'})};
 $('btnLoteNao').onclick=()=>{$('loteConf').hidden=true};
-$('btnLoteSim').onclick=()=>{const n=sel.size;[...sel].forEach(ajustar);$('loteConf').hidden=true;renderAj();renderAz();renderAc();renderPlano();toast(n+' ajuste'+(n>1?'s':'')+' gravado'+(n>1?'s':'')+'.')};
+$('btnLoteSim').onclick=async()=>{const b=$('btnLoteSim');b.disabled=true;const rs=[];for(const i of [...sel])rs.push(await ajustar(i));b.disabled=false;const n=rs.filter(r=>r!==false).length;$('loteConf').hidden=true;renderAj();renderAz();renderAc();renderPlano();if(n||rs.length>1)toast(n+' de '+rs.length+' encerrada'+(n===1?'':'s')+'.')};
 $('btnPlCria').onclick=criaPlano;
 $('btnPlNovo').onclick=()=>{$('plConf').hidden=false};
 $('btnPlNao').onclick=()=>{$('plConf').hidden=true};
@@ -940,12 +965,13 @@ abre(ini);renderTudo();boot();
   let cfg=Object.assign({},PAD);try{Object.assign(cfg,JSON.parse(ler('inv-cfg','{}')))}catch(e){}
   let chave=ler('inv-chave',''),prods={};try{prods=JSON.parse(ler('inv-prod','{}'))}catch(e){}
   const LIM=200,limpa=v=>String(v==null?'':v).toUpperCase().replace(/[^A-Z0-9_-]/g,'');
-  async function chamar(caminho,params,k){
+  async function chamar(caminho,params,k,metodo,corpo){
     k=k||chave;if(!k)throw new Error('Informe a chave de acesso do WMS na aba Armazém.');
     const u=new URL(cfg.url.replace(/\/+$/,'')+'/'+caminho);Object.entries(params||{}).forEach(([a,b])=>u.searchParams.set(a,b));
-    let r;try{r=await fetch(u,{headers:{Authorization:k,'Accept-Language':'pt-BR'}})}catch(e){throw new Error('Não foi possível falar com o WMS. Confira a internet deste aparelho.')}
+    const cab={Authorization:k,'Accept-Language':'pt-BR'};if(corpo)cab['Content-Type']='application/json';
+    let r;try{r=await fetch(u,{method:metodo||'GET',headers:cab,body:corpo?JSON.stringify(corpo):undefined})}catch(e){throw new Error('Não foi possível falar com o WMS. Confira a internet deste aparelho.')}
     if(r.status===401)throw new Error('O WMS recusou a chave de acesso (erro 401). Confira a chave e o endereço da API.');
-    if(r.status===404)return null;if(!r.ok)throw new Error('O WMS respondeu com erro '+r.status+'.');
+    if(r.status===404)return null;if(!r.ok){let d='';try{const j=await r.json();d=String(j.message||j.detail||j.title||'').slice(0,200)}catch(e){}throw new Error('O WMS respondeu com erro '+r.status+(d?': '+d:'.'))}
     return r.json().catch(()=>null);
   }
   const lista=d=>Array.isArray(d)?d:(d&&typeof d==='object'?(Object.values(d).find(Array.isArray)||[]):[]);
@@ -964,6 +990,20 @@ abre(ini);renderTudo();boot();
     const est=I.cols.estoque=I.cols.estoque||{},removidas=Object.keys(est).filter(k=>ends.includes(est[k].endereco)&&!ach[k]);
     removidas.forEach(k=>delete est[k]);Object.assign(est,ach);try{I.grava()}catch(e){}
     return {docs:ach,removidas};
+  };
+  const dataJava=()=>{const d=new Date(Date.now()-3*36e5),p=n=>String(n).padStart(2,'0');return 'Sun Mon Tue Wed Thu Fri Sat'.split(' ')[d.getUTCDay()]+' '+'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')[d.getUTCMonth()]+' '+p(d.getUTCDate())+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes())+':'+p(d.getUTCSeconds())+' GMT-03:00 '+d.getUTCFullYear()};
+  const checa=(v,oq)=>{if(v==null)throw new Error('O WMS não respondeu à validação de '+oq+'. Nada foi movimentado.');if(v.valid===false)throw new Error('O WMS não validou '+oq+': '+(v.message||'sem detalhe.')+' Nada foi movimentado.')};
+  window.__moverUa=async(ua,origem,destino)=>{
+    ua=limpa(ua);origem=limpa(origem);destino=limpa(destino);const usuario=ler('inv-usuario-wms','').trim(),E=encodeURIComponent;
+    if(!usuario)throw new Error('Informe o usuário do MLW para as movimentações, na aba Armazém.');
+    if(!ua||!origem||!destino||origem===destino)throw new Error('Origem e destino inválidos.');
+    checa(await chamar('mobile-movimentacao-ua/validate/ua-origem/'+E(cfg.est)+'/'+E(cfg.dep)+'/'+E(origem)+'/'+E(ua)),'a UA na origem');
+    checa(await chamar('mobile-movimentacao-ua/validate/endereco-destino/'+E(cfg.est)+'/'+E(cfg.dep)+'/'+E(origem)+'/'+E(destino)),'o endereço de destino');
+    let cad=await chamar('ua/'+E(cfg.est)+'/'+E(ua))||{};if(Array.isArray(cad))cad=cad[0]||{};
+    const tipo=String(cad.tipoUa||'');let desc='';
+    if(tipo){try{let t=await chamar('tipo-ua/'+E(tipo))||{};if(Array.isArray(t))t=t[0]||{};const k=Object.keys(t).find(x=>/descricao/i.test(x)&&t[x]);desc=k?String(t[k]):''}catch(e){}}
+    await chamar('mobile-movimentacao-ua/movimentar',null,null,'PUT',[{fromRecipient:ua,fromLocationLabel:origem,toLocationLabel:destino,depositorCode:cfg.dep,fromRecipientType:tipo,fromRecipientTypeDescription:desc,equipmentId:'',user:usuario,startDate:dataJava(),complement01:String(cfg.est)}]);
+    return {ok:true};
   };
   function status(){
     window.__saldoAoVivo=!!chave;let host='';try{host=new URL(cfg.url).hostname}catch(e){}
@@ -984,6 +1024,8 @@ abre(ini);renderTudo();boot();
     try{new URL(u)}catch(x){msg('Endereço da API inválido.');return}
     if(!e||!d){msg('Informe estabelecimento e depositante.');return}
     cfg={url:u,est:e,dep:d};por('inv-cfg',JSON.stringify(cfg));msg('Servidor salvo neste aparelho.');status()};
+  $('wmsUsuario').value=ler('inv-usuario-wms','');
+  $('wmsUsuSalvar').onclick=()=>{por('inv-usuario-wms',$('wmsUsuario').value.trim());msg('Usuário salvo neste aparelho.')};
   $('opNome').value=ler('inv-operador','');
   $('opSalvar').onclick=()=>{por('inv-operador',$('opNome').value.trim());location.reload()};
   status();
