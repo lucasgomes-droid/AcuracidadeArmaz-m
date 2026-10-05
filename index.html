@@ -245,6 +245,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       <button role="tab" data-tab="ajustes" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h14M15 5l3 3-3 3M20 16H6M9 13l-3 3 3 3"></path></svg><span class="lb">Ajustes</span><span class="badge" id="nPend" hidden>0</span></button>
       <button role="tab" data-tab="acuracidade" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.5"></circle><circle cx="12" cy="12" r="1" fill="currentColor"></circle></svg><span class="lb">Acuracidade</span></button>
       <button role="tab" data-tab="comparar" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 20V10M10 20V4M15 20v-8M20 20V7"></path></svg><span class="lb">Comparar</span></button>
+      <button role="tab" data-tab="config" id="tabCfg" aria-selected="false" style="order:9"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg><span class="lb">Config.</span></button>
       <button role="tab" data-tab="armazem" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 20V9l9-5 9 5v11"></path><path d="M7 20v-7h10v7M7 16.5h10"></path></svg><span class="lb">Armazém</span></button>
     </nav>
     <div class="who" id="quem"></div>
@@ -434,6 +435,30 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
 
   <!-- ARMAZÉM -->
   <section id="tab-armazem" hidden>
+    <div class="panel">
+      <div class="row" style="align-items:flex-end">
+        <label>Baia ou porta-palete<select class="sm" id="azF"></select></label>
+        <label>Item<select class="sm" id="azItem"></select></label>
+        <label>Situação<select class="sm" id="azSit"><option value="">Todas</option><option value="nunca">Nunca auditadas</option><option value="30">Mais de 30 dias sem auditar</option><option value="dia">Auditadas nos últimos 30 dias</option><option value="div">Com divergência em aberto</option></select></label>
+        <label class="grow" style="max-width:260px">Buscar<input type="text" class="sm" style="max-width:none;width:100%" id="posBusca" placeholder="UA, lote ou endereço"></label>
+        <button class="btn ghost small" type="button" id="azLimpa">Limpar filtros</button>
+      </div>
+      <p class="sub" id="azTxt"></p>
+    </div>
+    <div class="panel"><h2 id="azTit">Ocupação e dias sem auditoria</h2><div class="scroll" id="azBaia"></div></div>
+    <div class="panel"><h2>Estoque no sistema</h2><div class="scroll" id="posLista"></div></div>
+  </section>
+
+  <!-- CONFIGURAÇÃO (com senha) -->
+  <section id="tab-config" hidden>
+    <div class="panel narrow" id="admBox">
+      <h2>Acesso restrito</h2>
+      <p class="sub" id="admTxt"></p>
+      <label>Senha do administrador<input type="password" id="admS1" autocomplete="off"></label>
+      <label id="admL2" hidden>Repita a senha<input type="password" id="admS2" autocomplete="off"></label>
+      <button class="btn" type="button" id="admOk" style="align-self:flex-start">Entrar</button>
+    </div>
+    <div id="admArea" class="stack" hidden style="gap:18px">
     <div class="panel" id="wmsBox">
       <div class="row"><h2 class="grow">Ligação com o WMS</h2><span class="chip off" id="wmsSt">Sem chave de acesso</span></div>
       <div class="row" id="wmsLogin">
@@ -457,11 +482,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       <div class="row"><label style="flex:0 1 260px">Seu nome neste aparelho<input type="text" id="opNome" placeholder="Ex.: Lucas"></label>
         <button class="btn ghost" type="button" id="opSalvar">Salvar nome</button></div>
     </div>
-    <div class="panel"><h2>Ocupação e dias sem contagem por baia e porta-palete</h2><div class="scroll" id="azBaia"></div></div>
-    <div class="panel">
-      <div class="row"><h2 class="grow">Estoque no sistema</h2>
-        <label style="flex:0 1 240px">Buscar<input type="text" id="posBusca" placeholder="UA, lote ou endereço"></label></div>
-      <div class="scroll" id="posLista"></div>
+      <button class="btn ghost" type="button" id="admSair" style="align-self:flex-start">Bloquear de novo</button>
     </div>
   </section>
   </main>
@@ -740,7 +761,7 @@ function gravaRecont(){
 /* ---------- ajustes ---------- */
 const auto=a=>a.tipo==='end'||a.tipo==='kg';
 const VIS={mov:['end','Movimentação'],sem:['sobra','Sem saldo'],nao:['nao','Não encontradas'],kg:['kg','Peso']};
-let ajV='mov';const semRes={};
+let ajV='mov';const semRes={},semUas={};
 function ondeLote(lote){
   const L=String(lote||'').trim().toUpperCase(),m={};if(!L)return[];
   Object.values(estoque).forEach(e=>{if(String(e.lote).toUpperCase()!==L)return;const x=m[e.endereco]||(m[e.endereco]={end:e.endereco,n:0,kg:0,prod:e.produto,desc:e.descricao});x.n++;x.kg+=Number(e.kg)||0});
@@ -767,7 +788,9 @@ function semHtml(a,ab){
     const l=ondeLote(a.lote),n=l.reduce((t,x)=>t+x.n,0),kg=l.reduce((t,x)=>t+x.kg,0),end=r.cad&&typeof r.cad.endereco==='string'?r.cad.endereco:'';
     res=(end?`<p class="sub">Cadastro desta UA no WMS: último endereço <b>${esc(end)}</b></p>`:'')+
       (l.length?`<h3>Onde está o restante do lote ${esc(a.lote)} · ${uasTxt(n)} · ${kgf(kg)} kg</h3><div class="scroll"><table><thead><tr><th>Endereço</th><th class="num">UAs</th><th class="num">Kg</th><th>Item</th></tr></thead><tbody>${
-        l.map(x=>`<tr><td>${addr(x.end)}</td><td class="num">${x.n}</td><td class="num">${kgf(x.kg)}</td><td>${esc(x.desc||x.prod)}</td></tr>`).join('')}</tbody></table></div>`
+        l.map(x=>`<tr><td>${addr(x.end)}</td><td class="num">${x.n}</td><td class="num">${kgf(x.kg)}</td><td>${esc(x.desc||x.prod)}</td></tr>`).join('')}</tbody></table></div>
+        <div class="row"><span class="grow">Deseja ver todas as UAs deste lote que estão no sistema?</span><button class="btn ghost small" type="button" data-vuas="${id}">${semUas[a.id]?'Esconder as UAs':'Sim, mostrar as '+n+' UAs'}</button></div>`+
+        (semUas[a.id]?`<div class="scroll"><table><thead><tr><th>UA</th><th>Endereço</th><th>Item</th><th class="num">Kg</th><th>Última auditoria</th></tr></thead><tbody>${(u=>Object.values(estoque).filter(e=>String(e.lote).toUpperCase()===a.lote).sort((x,y)=>String(x.endereco).localeCompare(String(y.endereco))||String(x.ua).localeCompare(String(y.ua))).map(e=>`<tr><td class="ua">${esc(e.ua)}</td><td>${addr(e.endereco)}</td><td>${esc(e.descricao||e.produto)}</td><td class="num">${kgf(e.kg)}</td><td>${u[e.ua]?diaf(u[e.ua])+' <span class="sub">'+diasTxt(u[e.ua])+'</span>':'<span class="chip off">Nunca</span>'}</td></tr>`).join(''))(ultimas())}</tbody></table></div>`:'')
       :`<p class="notice warn">${r.feito||!aoVivo()?'Nenhuma UA com saldo no lote '+esc(a.lote)+(aoVivo()?' no WMS. Confira se o lote foi digitado como está na etiqueta.':' no estoque carregado no app.'):'Toque em Localizar lote para consultar o WMS.'}</p>`);
   }
   const lote=ab&&!rec?`<div class="row"><label class="grow" style="max-width:320px">Lote da etiqueta<input type="text" class="sm" style="max-width:none;width:100%" data-lote="${id}" value="${esc(a.lote||'')}" placeholder="Bipe ou digite o lote" autocapitalize="characters" autocomplete="off"></label>
@@ -899,6 +922,7 @@ function dadosAc(o){
     naMeta:val[mt]==null?null:val[mt]>=metas[mt],tipos,baias,ends:grp(endDe),prods:grp(prodDe),mots:grp(a=>a.motivo),
     abertas:as.filter(aberto).length,resolvidas:as.filter(a=>!aberto(a)).length,serie:serieDias(fs)};
 }
+const qt=(D,k)=>{const x=D.tipos.find(t=>t.k===k);return x?x.n:0},qkg=(D,k)=>{const x=D.tipos.find(t=>t.k===k);return x?x.kg:0};
 const plural=(n,s,p)=>n+' '+(n===1?s:p);
 function sumario(D){
   if(!D.fs.length) return [];
@@ -975,7 +999,8 @@ function renderAc(){
   const k=(tit,p,m,key)=>`<div class="mini ${D.mt===key?'on':''}"><span class="t">${tit}</span><b class="${p==null?'':p>=m?'ok':'crit'}">${pctf(p)}</b><span class="sub">meta ${nf(m)}%${D.mt===key?' · em uso':''}</span></div>`;
   const n=(tit,v,sub)=>`<div class="mini"><span class="t">${tit}</span><b>${fs.length?v:'—'}</b><span class="sub">${fs.length?sub:''}</span></div>`;
   $('acHero').innerHTML=k('Acuracidade por UA',D.pe,mE,'ua')+k('Acuracidade por kg',D.pk,mK,'kg')+k('Acuracidade geral',D.pg,D.metas.geral,'geral')+
-    n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes',D.divUa,kgf(D.divKg)+' kg')+n('UAs sem saldo',D.sem,plural(D.abertas,'pendência em aberto','pendências em aberto'));
+    n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes (total)',D.divUa,kgf(D.divKg)+' kg')+
+    n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'));
   /* auditorias: a mais recente já abre com o resultado */
   if(acAberta===null&&fs.length)acAberta=fs[0].id;
   $('acTit').textContent='Contagens'+(fs.length?' · '+D.perTxt:'');
@@ -1062,6 +1087,7 @@ function gerarPdf(D){
   pag('Sumário executivo');par(sumario(D).join(' '),12.5);y+=4;
   tiles([[D.uas,'UAs auditadas'],[kgf(D.kgAud),'Kg auditados'],[D.divUa,'UAs divergentes',D.divUa?R:V],[kgf(D.divKg),'Kg divergente',D.divKg?R:V],[D.sem,'UAs sem saldo no sistema',D.sem?R:V],[D.fs.length,'Auditorias realizadas']]);
   tiles([[pctf(D.pe),'Acuracidade por UA',D.pe>=D.metas.ua?V:R],[pctf(D.pk),'Acuracidade por kg',D.pk>=D.metas.kg?V:R],[pctf(D.pg),'Acuracidade geral',D.pg>=D.metas.geral?V:R],[D.abertas,'Divergências em aberto',D.abertas?A:V],[D.resolvidas,'Divergências tratadas']]);
+  tiles([[qt(D,'end'),'UAs com endereço divergente',qt(D,'end')?R:V],[qt(D,'nao'),'UAs não encontradas',qt(D,'nao')?R:V],[D.sem,'UAs sem saldo no sistema',D.sem?R:V],[qt(D,'kg'),'UAs com peso divergente',qt(D,'kg')?R:V],[D.t.endOk||0,'UAs no endereço correto',V]]);
   /* metas */
   pag('Leitura gerencial dos indicadores','A meta em uso para avaliar o período é a meta '+NOME_META[D.mt]+'.');
   const st=(p,m)=>p==null?'Sem dados':p>=m?'Dentro da meta':'Abaixo da meta';
@@ -1078,7 +1104,7 @@ function gerarPdf(D){
     pag('Comparação com o período anterior','Período atual: '+D.perTxt+'. Período anterior: '+B.perTxt+'.');
     pares([{l:'Acuracidade por UA',a:D.pe,b:B.pe},{l:'Acuracidade por kg',a:D.pk,b:B.pk},{l:'Acuracidade geral',a:D.pg,b:B.pg}]);
     tabela(['Indicador','Atual','Anterior','Variação'],[['Auditorias',D.fs.length,B.fs.length,dv(D.fs.length,B.fs.length)],['UAs auditadas',D.uas,B.uas,dv(D.uas,B.uas)],['Kg auditados',kgf(D.kgAud),kgf(B.kgAud),dv(D.kgAud,B.kgAud)],
-      ['UAs divergentes',D.divUa,B.divUa,dv(D.divUa,B.divUa)],['Kg divergente',kgf(D.divKg),kgf(B.divKg),dv(D.divKg,B.divKg)],['UAs sem saldo',D.sem,B.sem,dv(D.sem,B.sem)],
+      ['UAs divergentes (total)',D.divUa,B.divUa,dv(D.divUa,B.divUa)],['Kg divergente',kgf(D.divKg),kgf(B.divKg),dv(D.divKg,B.divKg)],['Endereço divergente',qt(D,'end'),qt(B,'end'),dv(qt(D,'end'),qt(B,'end'))],['Não encontradas',qt(D,'nao'),qt(B,'nao'),dv(qt(D,'nao'),qt(B,'nao'))],['UAs sem saldo',D.sem,B.sem,dv(D.sem,B.sem)],
       ['Acuracidade por UA',pctf(D.pe),pctf(B.pe),dv(D.pe,B.pe,1)],['Acuracidade por kg',pctf(D.pk),pctf(B.pk),dv(D.pk,B.pk,1)],['Acuracidade geral',pctf(D.pg),pctf(B.pg),dv(D.pg,B.pg,1)]])}
   /* divergências por tipo */
   const tp=D.tipos.filter(x=>x.n);
@@ -1189,7 +1215,7 @@ function renderCp(){
   const var_=(a,b,bom,p)=>{if(a==null||b==null)return'';const d=Math.round((a-b)*10)/10;if(!d)return'<span class="chip off">igual</span>';return`<span class="chip ${(d>0)===(bom>0)?'ok':'crit'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${p?' p.p.':''}</span>`};
   const card=(tit,a,b,m)=>`<div class="mini"><span class="t">${tit}</span><b class="${a==null?'':a>=m?'ok':'crit'}">${pctf(a)}</b><span class="sub">antes ${pctf(b)} ${var_(a,b,1,1)}</span></div>`;
   $('cpCards').innerHTML=card('Acuracidade por UA',A.pe,B.pe,A.metas.ua)+card('Acuracidade por kg',A.pk,B.pk,A.metas.kg)+card('Acuracidade geral',A.pg,B.pg,A.metas.geral);
-  const L=[['Auditorias',A.fs.length,B.fs.length,1],['UAs auditadas',A.uas,B.uas,1],['Kg auditados',A.kgAud,B.kgAud,1,1],['UAs divergentes',A.divUa,B.divUa,-1],['Kg divergente',A.divKg,B.divKg,-1,1],['UAs sem saldo',A.sem,B.sem,-1],['Divergências em aberto',A.abertas,B.abertas,-1]];
+  const L=[['Auditorias',A.fs.length,B.fs.length,1],['UAs auditadas',A.uas,B.uas,1],['Kg auditados',A.kgAud,B.kgAud,1,1],['UAs divergentes (total)',A.divUa,B.divUa,-1],['Kg divergente',A.divKg,B.divKg,-1,1],['Endereço divergente',qt(A,'end'),qt(B,'end'),-1],['Não encontradas',qt(A,'nao'),qt(B,'nao'),-1],['UAs sem saldo no sistema',A.sem,B.sem,-1],['Divergências em aberto',A.abertas,B.abertas,-1]];
   $('cpTab').innerHTML=`<table><thead><tr><th>Indicador</th><th class="num">${esc(P.na)}<br><span class="sub">${esc(A.perTxt)}</span></th><th class="num">${esc(P.nb)}<br><span class="sub">${esc(B.perTxt)}</span></th><th>Variação</th></tr></thead><tbody>`+
     L.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[4]?kgf(r[1]):r[1]}</td><td class="num">${r[4]?kgf(r[2]):r[2]}</td><td>${var_(r[1],r[2],r[3])}</td></tr>`).join('')+'</tbody></table>';
   const mb={};A.baias.forEach(x=>{(mb[x.k]=mb[x.k]||{k:x.k}).a=x});B.baias.forEach(x=>{(mb[x.k]=mb[x.k]||{k:x.k}).b=x});
@@ -1207,7 +1233,7 @@ function resumoSess(id){
   const n=(tit,x,sub)=>`<div class="mini"><span class="t">${tit}</span><b>${x}</b><span class="sub">${sub}</span></div>`;
   return `<div class="row"><div class="grow"><h2>Resumo da auditoria</h2><p class="sub">${esc(D.perTxt)} · ${plural(D.fs.length,'contagem','contagens')}</p></div>
     <span class="chip ${D.naMeta?'ok':'crit'}">Meta ${NOME_META[D.mt]} (${nf(m)}%) ${D.naMeta?'atingida':'não atingida'}: ${pctf(v)}</span></div>
-  <div class="minis">${k('Acuracidade por UA',D.pe,D.metas.ua)+k('Acuracidade por kg',D.pk,D.metas.kg)+k('Acuracidade geral',D.pg,D.metas.geral)+n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes',D.divUa,kgf(D.divKg)+' kg')+n('UAs sem saldo',D.sem,plural(D.abertas,'pendência nos Ajustes','pendências nos Ajustes'))}</div>
+  <div class="minis">${k('Acuracidade por UA',D.pe,D.metas.ua)+k('Acuracidade por kg',D.pk,D.metas.kg)+k('Acuracidade geral',D.pg,D.metas.geral)+n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes (total)',D.divUa,kgf(D.divKg)+' kg')+n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'))}</div>
   <h3>Divergências encontradas</h3>${hbars(D.tipos.filter(x=>x.n).map(x=>({l:x.l,v:x.n,t:uasTxt(x.n)+(x.kg?' · '+kgf(x.kg)+' kg':''),c:x.k==='end'||x.k==='kg'?'warn':'crit'})),'Nenhuma divergência nesta auditoria.')}
   <h3>Contagens realizadas</h3><div class="scroll"><table><thead><tr><th>Contagem</th><th>Hora</th><th class="num">Bipadas / sistema</th><th class="num">Por UA</th><th class="num">Por kg</th><th>Divergências</th></tr></thead><tbody>${
     D.fs.slice().reverse().map(c=>{const r=c.resumo;return `<tr><td><b>${esc(titulo(c))}</b></td><td class="nw">${dtf(c.fim)}</td><td class="num">${r.contadas}/${r.esperadas??r.escopo}</td><td class="num">${pctf(pct(r.endOk,r.escopo))}</td><td class="num">${pctf(accKg(r))}</td><td>${divTxt(r)?esc(divTxt(r)):'<span class="chip ok">Sem divergência</span>'}</td></tr>`}).join('')}</tbody></table></div>
@@ -1233,18 +1259,46 @@ const dias=s=>Math.max(0,Math.floor((Date.now()-new Date(s).getTime())/864e5));
 const diasTxt=s=>s?(dias(s)===0?'hoje':'há '+dias(s)+' dia'+(dias(s)>1?'s':'')):'nunca';
 function renderAz(){
   const ult=ultimas(),all=Object.values(estoque),m={};
-  all.forEach(e=>{const b=baiaDe(e.endereco),x=m[b]||(m[b]={b,ends:new Set(),n:0,kg:0,nunca:0,velha:null});
-    x.ends.add(e.endereco);x.n++;x.kg+=Number(e.kg)||0;const u=ult[e.ua];if(!u)x.nunca++;else if(!x.velha||u<x.velha)x.velha=u});
-  const bs=Object.values(m).sort((a,b)=>a.b.localeCompare(b.b));
-  $('azBaia').innerHTML=bs.length?'<table><thead><tr><th>Baia</th><th class="num">Endereços ocupados</th><th class="num">UAs</th><th class="num">Kg</th><th>Contagem mais antiga</th><th class="num">UAs nunca contadas</th><th></th></tr></thead><tbody>'+
-    bs.map(x=>{const d=x.velha?dias(x.velha):null,al=x.nunca?['Há UA sem contagem','crit']:d>30?['Mais de 30 dias','warn']:['Em dia','ok'];
-      return `<tr><td><b>${esc(x.b)}</b></td><td class="num">${x.ends.size}</td><td class="num">${x.n}</td><td class="num">${kgf(x.kg)}</td><td>${x.velha?diasTxt(x.velha):'—'}</td><td class="num">${x.nunca}</td><td><span class="chip ${al[1]}">${al[0]}</span></td></tr>`}).join('')+'</tbody></table>'
-    :`<p class="empty">${ready?'Nenhuma posição carregada.':'Carregando…'}</p>`;
-  const q=limpa($('posBusca').value);
-  const l=all.filter(e=>!q||[e.ua,e.lote,e.endereco].some(v=>String(v).toUpperCase().includes(q))).sort((a,b)=>String(a.endereco).localeCompare(b.endereco));
-  if(!l.length){$('posLista').innerHTML=`<p class="empty">${!ready?'Carregando…':all.length?'Nada encontrado para essa busca.':'Nenhuma posição carregada. O estoque do sistema aparece aqui.'}</p>`;return}
-  $('posLista').innerHTML='<table><thead><tr><th>Endereço</th><th>UA</th><th>Produto</th><th>Lote</th><th class="num">Kg</th><th>Última contagem</th></tr></thead><tbody>'+
-    l.map(e=>`<tr><td>${addr(e.endereco)}</td><td class="ua">${esc(e.ua)}</td><td>${esc(e.descricao)}</td><td>${esc(e.lote)}</td><td class="num">${kgf(e.kg)}</td><td>${ult[e.ua]?diaf(ult[e.ua])+' <span class="sub">'+diasTxt(ult[e.ua])+'</span>':'<span class="chip crit">Nunca</span>'}</td></tr>`).join('')+'</tbody></table>';
+  const divUa=new Set(Object.values(ajustes).filter(aberto).map(a=>a.ua));
+  const grupos=[...new Set(all.map(e=>baiaDe(e.endereco)))].sort(),itens={};all.forEach(e=>{if(e.produto)itens[e.produto]=e.descricao||''});
+  const keep=(s,html)=>{const v=s.value;s.innerHTML=html;s.value=[...s.options].some(o=>o.value===v)?v:''};
+  keep($('azF'),'<option value="">Todas</option>'+grupos.map(g=>`<option value="${esc(g)}">${esc(nomeGrupo(g))}</option>`).join(''));
+  keep($('azItem'),'<option value="">Todos</option>'+Object.keys(itens).sort().map(k=>`<option value="${esc(k)}">${esc(k+(itens[k]?' · '+itens[k]:''))}</option>`).join(''));
+  const fB=$('azF').value,fI=$('azItem').value,fS=$('azSit').value,q=limpa($('posBusca').value);
+  const sit=e=>{const u=ult[e.ua];return fS===''||(fS==='nunca'&&!u)||(fS==='30'&&u&&dias(u)>30)||(fS==='dia'&&u&&dias(u)<=30)||(fS==='div'&&divUa.has(e.ua))};
+  const l=all.filter(e=>(!fB||baiaDe(e.endereco)===fB)&&(!fI||e.produto===fI)&&sit(e)&&(!q||[e.ua,e.lote,e.endereco].some(v=>String(v).toUpperCase().includes(q)))).sort((a,b)=>String(a.endereco).localeCompare(String(b.endereco)));
+  const kgT=l.reduce((t,e)=>t+(Number(e.kg)||0),0);
+  $('azTxt').textContent=all.length?plural(l.length,'UA','UAs')+' · '+kgf(kgT)+' kg · '+plural(new Set(l.map(e=>e.endereco)).size,'endereço ocupado','endereços ocupados')+(l.length<all.length?' (de '+all.length+' UAs no estoque carregado)':''):'';
+  /* sem baia escolhida: uma linha por baia; com baia escolhida: uma linha por endereço dela */
+  const chave=e=>fB?e.endereco:baiaDe(e.endereco);
+  l.forEach(e=>{const b=chave(e),x=m[b]||(m[b]={b,ends:new Set(),n:0,kg:0,nunca:0,velha:null,div:0});
+    x.ends.add(e.endereco);x.n++;x.kg+=Number(e.kg)||0;if(divUa.has(e.ua))x.div++;const u=ult[e.ua];if(!u)x.nunca++;else if(!x.velha||u<x.velha)x.velha=u});
+  const bs=Object.values(m).sort((a,b)=>String(a.b).localeCompare(String(b.b)));
+  $('azTit').textContent=fB?'Endereços de '+nomeGrupo(fB):'Ocupação e dias sem auditoria por baia e porta-palete';
+  $('azBaia').innerHTML=bs.length?`<table><thead><tr><th>${fB?'Endereço':'Local'}</th>${fB?'':'<th class="num">Endereços ocupados</th>'}<th class="num">UAs</th><th class="num">Kg</th><th>Auditoria mais antiga</th><th class="num">UAs nunca auditadas</th><th class="num">Divergências em aberto</th><th></th></tr></thead><tbody>`+
+    bs.map(x=>{const d=x.velha?dias(x.velha):null,al=x.nunca?['Há UA sem auditoria','crit']:d>30?['Mais de 30 dias','warn']:['Em dia','ok'];
+      return `<tr><td>${fB?addr(x.b):'<b>'+esc(nomeGrupo(x.b))+'</b>'}</td>${fB?'':`<td class="num">${x.ends.size}</td>`}<td class="num">${x.n}</td><td class="num">${kgf(x.kg)}</td><td>${x.velha?diasTxt(x.velha):'—'}</td><td class="num">${x.nunca}</td><td class="num">${x.div}</td><td><span class="chip ${al[1]}">${al[0]}</span></td></tr>`}).join('')+'</tbody></table>'
+    :`<p class="empty">${!ready?'Carregando…':all.length?'Nada encontrado com esses filtros.':'Nenhum estoque carregado. O administrador carrega o estoque do WMS na aba Config.'}</p>`;
+  if(!l.length){$('posLista').innerHTML=`<p class="empty">${!ready?'Carregando…':all.length?'Nada encontrado com esses filtros.':'Nenhum estoque carregado.'}</p>`;return}
+  const MAX=400;
+  $('posLista').innerHTML='<table><thead><tr><th>Endereço</th><th>UA</th><th>Item</th><th>Lote</th><th class="num">Kg</th><th>Última auditoria</th></tr></thead><tbody>'+
+    l.slice(0,MAX).map(e=>`<tr><td>${addr(e.endereco)}</td><td class="ua">${esc(e.ua)}</td><td>${esc(e.descricao)}</td><td>${esc(e.lote)}</td><td class="num">${kgf(e.kg)}</td><td>${ult[e.ua]?diaf(ult[e.ua])+' <span class="sub">'+diasTxt(ult[e.ua])+'</span>':'<span class="chip crit">Nunca</span>'}${divUa.has(e.ua)?' <span class="chip warn">Divergência</span>':''}</td></tr>`).join('')+'</tbody></table>'+
+    (l.length>MAX?`<p class="sub">Mostrando as primeiras ${MAX} de ${l.length} UAs. Use os filtros para ver as demais.</p>`:'');
+}
+let admOk=false;
+async function renderAdm(){
+  const A=window.__admin;$('tabCfg').hidden=!A;if(!A)return;
+  let tem=false;try{tem=await A.tem()}catch(e){}
+  $('admBox').hidden=admOk;$('admArea').hidden=!admOk;$('admL2').hidden=tem;$('admOk').textContent=tem?'Entrar':'Criar senha';
+  $('admTxt').textContent=tem?'A ligação com o WMS e a chave de acesso ficam protegidas. Digite a senha do administrador.':'Crie a senha do administrador. Só quem souber essa senha poderá ver esta tela e trocar a chave de acesso do WMS.';
+}
+async function entraAdm(){
+  const A=window.__admin,s=$('admS1').value;if(!A)return;
+  try{
+    if(!(await A.tem())){if(s.length<4){toast('Use uma senha com pelo menos 4 caracteres.');return}if(s!==$('admS2').value){toast('As duas senhas não são iguais.');return}await A.criar(s)}
+    else if(!(await A.entrar(s))){toast('Senha incorreta.');$('admS1').value='';return}
+  }catch(e){toast((e&&e.message)||'Não foi possível conferir a senha.');return}
+  admOk=true;window.__adminSenha=s;$('admS1').value='';$('admS2').value='';renderAdm();
 }
 
 /* ---------- exportar ---------- */
@@ -1267,14 +1321,15 @@ async function exportar(){
 /* ---------- interface ---------- */
 function renderTudo(){renderCp();renderNova();renderCont();renderRec();renderPlano();renderAj();renderCfg();renderAc();renderAz()}
 let tt;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,3500)}
-const TABS=['contar','ajustes','acuracidade','comparar','armazem'];
-const TIT={contar:['Auditar','Auditoria e recontagem no coletor'],ajustes:['Ajustes','Movimentação e UAs sem saldo'],acuracidade:['Acuracidade','Resultado das auditorias, metas e relatório'],comparar:['Comparar','Um período contra outro'],armazem:['Armazém','Ligação com o WMS, ocupação e dias sem auditoria']};
+const TABS=['contar','ajustes','acuracidade','comparar','armazem','config'];
+const TIT={contar:['Auditar','Auditoria e recontagem no coletor'],ajustes:['Ajustes','Movimentação e UAs sem saldo'],acuracidade:['Acuracidade','Resultado das auditorias, metas e relatório'],comparar:['Comparar','Um período contra outro'],armazem:['Armazém','Ocupação, estoque e dias sem auditoria'],config:['Configuração','Ligação com o WMS, só para o administrador']};
 function abre(tab){
   if(!TABS.includes(tab)) tab='contar';
   TABS.forEach(t=>{$('tab-'+t).hidden=t!==tab});
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));
   $('pgTit').textContent=TIT[tab][0];$('pgSub').textContent=TIT[tab][1];
   try{localStorage.setItem('inv-tab',tab)}catch(e){}
+  if(tab==='config'){admOk=admOk&&true;renderAdm()}
 }
 document.addEventListener('click',ev=>{
   const b=ev.target.closest('button');if(!b)return;const d=b.dataset;
@@ -1285,6 +1340,7 @@ document.addEventListener('click',ev=>{
   else if(d.per){acPer=d.per;try{localStorage.setItem('inv-per',acPer)}catch(e){}renderAc()}
   else if(d.mt){cfg.metaTipo=d.mt;grava('config','geral',cfg);renderCfg();renderAc()}
   else if(d.busca){buscaLote(d.busca)}
+  else if(d.vuas){semUas[d.vuas]=!semUas[d.vuas];renderAj()}
   else if(d.reldia){acPer='hoje';acAberta=null;abre('acuracidade');renderAc()}
   else if(d.cp){cpPer=d.cp;renderCp()}
   else if(b.id==='btnSessIni'){iniciaSess()}
@@ -1359,6 +1415,11 @@ $('btnCpPdf').onclick=()=>{const D=relCp();if(D)baixarPdf(D)};$('btnCpMail').onc
 document.addEventListener('change',ev=>{const t=ev.target;if(t&&/^cpA[12]$/.test(t.id||'')){cpPer='datas';renderCp()}});
 $('btnXls').onclick=exportar;
 $('posBusca').addEventListener('input',renderAz);
+['azF','azItem','azSit'].forEach(i=>$(i).addEventListener('change',renderAz));
+$('azLimpa').onclick=()=>{['azF','azItem','azSit','posBusca'].forEach(i=>{$(i).value=''});renderAz()};
+$('admOk').onclick=entraAdm;$('admS1').addEventListener('keydown',ev=>{if(ev.key==='Enter'&&!$('admL2').hidden===false)entraAdm()});
+$('admSair').onclick=()=>{admOk=false;window.__adminSenha='';renderAdm()};
+renderAdm();window.addEventListener('load',renderAdm);setTimeout(renderAdm,400);
 let ini=(location.hash||'').slice(1);try{ini=ini||localStorage.getItem('inv-tab')||''}catch(e){}
 abre(ini);renderTudo();boot();
 </script>
@@ -1414,6 +1475,8 @@ abre(ini);renderTudo();boot();
     await chamar('mobile-movimentacao-ua/movimentar',null,null,'PUT',[{fromRecipient:ua,fromLocationLabel:origem,toLocationLabel:destino,depositorCode:cfg.dep,fromRecipientType:tipo,fromRecipientTypeDescription:desc,equipmentId:'',user:usuario,startDate:dataJava(),complement01:String(cfg.est)}]);
     return {ok:true};
   };
+  const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('inv|'+t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+  window.__admin={tem:async()=>!!ler('inv-admin',''),criar:async s=>{por('inv-admin',await sha(s))},entrar:async s=>ler('inv-admin','')===await sha(s)};
   function status(){
     window.__saldoAoVivo=!!chave;let host='';try{host=new URL(cfg.url).hostname}catch(e){}
     $('wmsSt').textContent=chave?'Ligado a '+host:'Sem chave de acesso';$('wmsSt').className='chip '+(chave?'ok':'off');
