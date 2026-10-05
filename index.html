@@ -936,7 +936,7 @@ abre(ini);renderTudo();boot();
 (function(){
   const $=id=>document.getElementById(id),msg=t=>{$('wmsMsg').textContent=t},I=window.__inv;
   const ler=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v}catch(e){return d}},por=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
-  const PAD={url:'https://mlwhom.zionlogtec.com.br:8080/api/integrator-api-docs',est:'1',dep:'68102011000540'};
+  const PAD={url:'https://mlw.zionlogtec.com.br:8080/api/integrator-icc',est:'1',dep:'68102011000540'};
   let cfg=Object.assign({},PAD);try{Object.assign(cfg,JSON.parse(ler('inv-cfg','{}')))}catch(e){}
   let chave=ler('inv-chave',''),prods={};try{prods=JSON.parse(ler('inv-prod','{}'))}catch(e){}
   const LIM=200,limpa=v=>String(v==null?'':v).toUpperCase().replace(/[^A-Z0-9_-]/g,'');
