@@ -213,6 +213,23 @@ td.nw{white-space:nowrap}
 #acStats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 #ajVis{flex:1 1 340px}
 td select.sm{max-width:150px}
+.minis{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:10px}
+.minis > *{min-width:0}
+@media (max-width:560px){.hb > div{grid-template-columns:minmax(70px,30%) minmax(30px,1fr) minmax(0,42%)}.hb .v{white-space:normal;text-align:right}}
+@media (max-width:860px){.tabs button{font-size:10px}.tabs .lb{overflow:hidden;text-overflow:ellipsis;max-width:100%}}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.mini.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.mini .t{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.mini b{font:700 34px/1 var(--display);font-variant-numeric:tabular-nums}
+b.ok{color:var(--ok)} b.crit{color:var(--crit)}
+.aud{border:1px solid var(--line);border-radius:10px;margin-top:10px;overflow:hidden}
+.aud.on{border-color:var(--accent)}
+.audH{display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;width:100%;padding:12px 14px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.audH:hover,.aud.on .audH{background:var(--accent-soft)}
+.audT{flex:1 1 200px;display:flex;flex-direction:column;min-width:0} .audT b{font-size:16px}
+.audN{display:flex;flex-direction:column;align-items:flex-end;min-width:70px} .audN b{font:700 22px/1.1 var(--display)}
+.audB{padding:16px 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:14px}
+.audB .stats{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
 summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercase;letter-spacing:.04em}
 #toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:11px 18px;font-weight:600;max-width:90vw;border-radius:8px;z-index:5;box-shadow:var(--shadow)}
 </style>
@@ -227,6 +244,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       <button role="tab" data-tab="contar" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5h3M20 8V5h-3M4 16v3h3M20 16v3h-3M8 9v6M11 9v6M14 9v6M16.5 9v6"></path></svg><span class="lb">Auditar</span><span class="badge" id="nRec" hidden>0</span></button>
       <button role="tab" data-tab="ajustes" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h14M15 5l3 3-3 3M20 16H6M9 13l-3 3 3 3"></path></svg><span class="lb">Ajustes</span><span class="badge" id="nPend" hidden>0</span></button>
       <button role="tab" data-tab="acuracidade" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.5"></circle><circle cx="12" cy="12" r="1" fill="currentColor"></circle></svg><span class="lb">Acuracidade</span></button>
+      <button role="tab" data-tab="comparar" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 20V10M10 20V4M15 20v-8M20 20V7"></path></svg><span class="lb">Comparar</span></button>
       <button role="tab" data-tab="armazem" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 20V9l9-5 9 5v11"></path><path d="M7 20v-7h10v7M7 16.5h10"></path></svg><span class="lb">Armazém</span></button>
     </nav>
     <div class="who" id="quem"></div>
@@ -258,6 +276,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
     <div class="panel narrow" id="contBox" hidden>
       <div class="row"><h2 id="contTit" class="grow"></h2><span class="progress" id="contProg"></span></div>
       <div class="bar full" id="contBar" hidden><i></i></div>
+      <div class="stack" id="ondeBox" hidden><h3>Onde o sistema diz que está (bipadas / total)</h3><div class="row" id="ondeChips"></div></div>
       <form id="bipForm" autocomplete="off" class="stack">
         <label id="endLbl">Endereço<input type="text" id="inEnd" placeholder="M04A01" autocapitalize="characters"></label>
         <div class="stack" id="orgBox" hidden>
@@ -334,34 +353,28 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
         <button class="btn" type="button" id="btnMail">Enviar por e-mail</button>
         <button class="btn ghost" type="button" id="btnXls" hidden>Excel</button>
       </div>
-      <p class="sub" id="acPerTxt"></p>
     </div>
-    <div class="hero" id="acHero"></div>
-    <div class="panel" id="acSum" hidden><h2>Resumo do período</h2><p class="sumario" id="acSumTxt"></p><div id="acPri"></div></div>
-    <div class="stats" id="acStats"></div>
+    <div class="minis" id="acHero"></div>
+    <div class="panel"><h2 id="acTit">Auditorias</h2><div id="acLista"></div></div>
     <div class="cols">
       <div class="panel"><h2>Divergências por tipo</h2><div id="gTipo"></div></div>
-      <div class="panel"><h2>Causas informadas</h2><div id="gMot"></div></div>
-    </div>
-    <div class="cols">
       <div class="panel"><h2>Acuracidade por baia e porta-palete</h2><div id="gBaia"></div></div>
-      <div class="panel"><h2>Kg divergente por baia e porta-palete</h2><div id="gKgBaia"></div></div>
     </div>
     <div class="cols">
       <div class="panel"><h2>Endereços com mais divergência</h2><div id="rkEnd"></div></div>
       <div class="panel"><h2>Itens com mais divergência</h2><div id="rkProd"></div></div>
     </div>
-    <div class="panel">
-      <h2>Evolução da acuracidade</h2>
-      <div class="legend"><span><span class="sw" style="background:var(--s1)"></span>Por UA</span><span><span class="sw" style="background:var(--s2)"></span>Por kg</span><span id="lgMeta"></span></div>
-      <div class="scroll"><div class="chart" id="acChart"></div></div>
-    </div>
-    <div class="panel"><h2>Resultado por baia e porta-palete</h2><div class="scroll" id="acBaia"></div></div>
-    <div class="panel"><h2>Resultado por item</h2><div class="scroll" id="acProd"></div></div>
-    <div class="cols">
-      <div class="panel"><h2>Por pessoa</h2><div class="scroll" id="acOper"></div></div>
-    </div>
-    <div class="panel"><h2>Auditorias do período</h2><div class="scroll" id="acLista"></div></div>
+    <details class="panel">
+      <summary>Mais detalhes</summary>
+      <div class="stack" style="margin-top:14px;gap:18px">
+        <h3>Evolução da acuracidade por dia</h3>
+        <div class="legend"><span><span class="sw" style="background:var(--s1)"></span>Por UA</span><span><span class="sw" style="background:var(--s2)"></span>Por kg</span><span id="lgMeta"></span></div>
+        <div class="scroll"><div class="chart" id="acChart"></div></div>
+        <h3>Resultado por item</h3><div class="scroll" id="acProd"></div>
+        <h3>Causas informadas</h3><div id="gMot"></div>
+        <h3>Por pessoa</h3><div class="scroll" id="acOper"></div>
+      </div>
+    </details>
     <details class="panel" id="cfgBox">
       <summary>Metas e e-mail do relatório</summary>
       <div class="stack" style="margin-top:14px">
@@ -382,7 +395,31 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
         <p class="sub" id="mailNota"></p>
       </div>
     </details>
-    <p class="sub">Acuracidade por UA = UAs no endereço certo ÷ UAs auditadas (as do sistema mais as encontradas de fora). Acuracidade por kg = kg no endereço certo ÷ kg auditado. Acuracidade geral = média das duas. Kg divergente = kg não encontrado ou fora do endereço.</p>
+    <p class="sub">Por UA = UAs no endereço certo ÷ UAs auditadas. Por kg = kg no endereço certo ÷ kg auditado. Geral = média das duas.</p>
+  </section>
+
+  <!-- COMPARAR -->
+  <section id="tab-comparar" hidden>
+    <div class="panel">
+      <div class="row">
+        <div class="seg" id="cpPer" style="flex:0 1 auto">
+          <button type="button" data-cp="semana" aria-pressed="true">Esta semana</button>
+          <button type="button" data-cp="mes" aria-pressed="false">Este mês</button>
+          <button type="button" data-cp="datas" aria-pressed="false">Datas personalizadas</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Período A, de<input type="date" id="cpA1"></label><label>até<input type="date" id="cpA2"></label>
+        <label>Período B, de<input type="date" id="cpB1"></label><label>até<input type="date" id="cpB2"></label>
+      </div>
+      <div class="row">
+        <button class="btn" type="button" id="btnCpPdf">PDF da comparação</button>
+        <button class="btn" type="button" id="btnCpMail">Enviar por e-mail</button>
+      </div>
+    </div>
+    <div class="minis" id="cpCards"></div>
+    <div class="panel"><h2>Indicadores</h2><div class="scroll" id="cpTab"></div></div>
+    <div class="panel"><h2>Acuracidade por UA, por baia e porta-palete</h2><div class="scroll" id="cpBaia"></div></div>
   </section>
 
   <!-- ARMAZÉM -->
@@ -548,6 +585,9 @@ function renderCont(){
   $('contProg').textContent=its.length+(tot?' de '+tot:'')+' UA'+(its.length===1&&!tot?'':'s');
   $('contBar').hidden=!tot;$('contBar').firstElementChild.style.width=(tot?Math.min(100,its.length/tot*100):0)+'%';
   $('kgLbl').hidden=!$('confKg').checked;
+  const og={};if(cur.por==='lote'||cur.por==='item')escopo(cur).forEach(e=>{const x=og[e.endereco]||(og[e.endereco]={t:0,b:0});x.t++;if(cur.itens[e.ua])x.b++});
+  $('ondeBox').hidden=!Object.keys(og).length;
+  $('ondeChips').innerHTML=Object.keys(og).sort().map(e=>`<span class="chip ${og[e].b>=og[e].t?'ok':'off'}">${esc(e)} · ${og[e].b}/${og[e].t}</span>`).join('');
   const vz=Object.keys(cur.vazios||{});
   $('contItens').innerHTML=(its.length||vz.length)?its.map(([ua,i])=>`<div><span class="ua">${esc(ua)}</span>${fixo?'':addr(i.endereco)}${i.kg==null?'':'<span>'+kgf(i.kg)+' kg</span>'}${chipSt(i)}<span class="sp"></span>
     <button class="btn ghost small" type="button" data-rm="${esc(ua)}">Remover</button></div>`).join('')+
@@ -623,19 +663,27 @@ function finalizar(){
 }
 
 const accKg=r=>r.kgCerto==null?null:pct(r.kgCerto,(r.kgEsc||0)+(r.kgFora||0));
-function auditoria(c){
+function porEndereco(c,as){
+  const m={},g=e=>m[e]||(m[e]={e,bip:0,ok:0,nao:0}),dt={};(c.det||[]).forEach(d=>{dt[d.ua]=d});
+  Object.entries(c.itens||{}).forEach(([ua,i])=>{const x=g(i.endereco);x.bip++;if(dt[ua]&&dt[ua].end)x.ok++});
+  as.forEach(a=>{if(a.tipo==='nao'&&a.sist)g(a.sist).nao++});
+  const l=Object.values(m).sort((a,b)=>String(a.e).localeCompare(String(b.e)));
+  return l.length>1?`<h3>Resultado por endereço</h3><div class="scroll"><table><thead><tr><th>Endereço</th><th class="num">UAs bipadas</th><th class="num">Corretas</th><th class="num">Divergentes</th><th class="num">Não encontradas</th><th></th></tr></thead><tbody>${l.map(x=>`<tr><td>${addr(x.e)}</td><td class="num">${x.bip}</td><td class="num">${x.ok}</td><td class="num">${x.bip-x.ok}</td><td class="num">${x.nao}</td><td>${x.bip===x.ok&&!x.nao?'<span class="chip ok">Correto</span>':'<span class="chip crit">Divergente</span>'}</td></tr>`).join('')}</tbody></table></div>`:'';
+}
+function auditoria(c,emb){
   const r=c.resumo,as=Object.values(ajustes).filter(a=>a.contagem===c.id),n=r.nEnd+r.nKg+r.nNao+r.nSobra;
   const pd=ua=>{const s=estoque[ua];return s?esc(s.descricao):''},by=t=>as.filter(a=>a.tipo===t);
   const sec=(t,cls,l,cab,lin)=>l.length?`<h3>${t} <span class="chip ${cls}">${l.length}</span></h3><div class="scroll"><table><thead><tr>${cab.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${l.map(lin).join('')}</tbody></table></div>`:'';
-  return `<div class="row"><div class="grow"><h2>Auditoria · ${esc(titulo(c))}</h2><p class="sub">${dtf(c.fim)}</p></div><span class="chip ${n?'crit':'ok'}">${n?n+' divergência'+(n>1?'s':''):'Sem divergência'}</span></div>
+  return `${emb?'':`<div class="row"><div class="grow"><h2>Auditoria · ${esc(titulo(c))}</h2><p class="sub">${dtf(c.fim)}</p></div><span class="chip ${n?'crit':'ok'}">${n?n+' divergência'+(n>1?'s':''):'Sem divergência'}</span></div>`}
   ${c.fonte==='carregado'?'<p class="notice warn">Comparado com o estoque carregado no app, não com o WMS ao vivo. Aqui, "sem saldo" significa só que a UA não está nesse estoque.</p>':''}
   <div class="stats">${[[r.contadas,'UAs bipadas'],[r.esperadas??r.escopo,'UAs no sistema'],[pctf(pct(r.endOk,r.escopo)),'Acuracidade por UA'],[pctf(accKg(r)),'Acuracidade por kg']].map(s=>`<div class="stat"><span class="t">${s[1]}</span><b>${s[0]}</b></div>`).join('')}</div>
   <p class="sub">Kg no sistema ${kgf(r.kgEsc)} · no endereço certo ${kgf(r.kgCerto)} · não encontrados ${kgf(r.kgFalta)} · vindos de outro endereço ${kgf(r.kgFora)}</p>
+  ${porEndereco(c,as)}
   ${sec('Bipadas aqui, mas o sistema aponta outro endereço','warn',by('end'),['UA','Produto','Bipada em','No sistema está em'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td>${addr(a.fis)}</td><td>${addr(a.sist)}</td></tr>`)}
   ${sec('No sistema neste endereço, mas não bipadas','crit',by('nao'),['UA','Produto','Endereço no sistema','Kg'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td>${addr(a.sist)}</td><td class="num">${kgf(estoque[a.ua]&&estoque[a.ua].kg)}</td></tr>`)}
   ${sec('UAs sem saldo no sistema','crit',by('sobra'),['UA','Bipada em'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${addr(a.fis)}</td></tr>`)}
   ${sec('Peso divergente','warn',by('kg'),['UA','Produto','Sistema','Físico','Diferença'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td class="num">${kgf(a.sist)}</td><td class="num">${kgf(a.fis)}</td><td class="num">${sinal(a.fis-a.sist)}</td></tr>`)}
-  <div class="row"><button class="btn" type="button" data-novo="1">Nova auditoria</button>${n?'<button class="btn ghost" type="button" data-go="ajustes">Ver na aba Ajustes</button>':''}<button class="btn ghost" type="button" data-reldia="1">Relatório do dia</button></div>`;
+  <div class="row">${emb?'':'<button class="btn" type="button" data-novo="1">Nova auditoria</button>'}${n?'<button class="btn ghost" type="button" data-go="ajustes">Ver na aba Ajustes</button>':''}<button class="btn ghost" type="button" data-pdfaud="${esc(c.id)}">PDF desta auditoria</button>${emb?'':'<button class="btn ghost" type="button" data-reldia="1">Ver na Acuracidade</button>'}</div>`;
 }
 
 /* ---------- recontagem ---------- */
@@ -776,7 +824,7 @@ async function ajustar(id){
   a.status='ajustado';a.por=uid||'';a.em=iso();sel.delete(id);putAjuste(a);return true;
 }
 
-function renderPlano(){}
+function renderPlano(){if(typeof renderCp==='function'&&!$('tab-comparar').hidden)renderCp()}
 
 /* ---------- acuracidade ---------- */
 const LOGO='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAACfCAMAAAB0ihQoAAAAwFBMVEX//////v////7///3///v//v3///n///H+//7+/v/+/v7+/v39//7+/vr9/vr9//L6//z5/+/2//Dx/+j//f79/f37/P38/fn8/fH8+/z6+vv7+/P7+fv5+PX79PX2+fn19fb19/P1+urx+ezn+Nzy8vPu8efs6+na7M7M2r7Gy7ytyZmus5yRr3iCoGd5mF5gmzJfmDNflzNgljVcljNhlTxelTGIiHRvh1Vlkjxmg0phkztckjtdki9dizhcfj/LZ+FuAAA/kElEQVR42u19iXbaSLStADHPAiEkIWtCQmCG2HgAbOP//6u79ymBcTrpkG73vW+tl1rdjg1SqWrXmevUkab9aX/an/an/Wl/2p/2p/1pf9qf9qf9aX/an/a1rXhq/O3nl3x/8b9+XPHfDvuit/8aoxoa/inplVPTdb2ExxaGbAW006hq+EZXAyqd2j9+7rmH0r+boi5N9aT/x2jVWmj1erNtVbpVtq7gVasNL1q90Wi1ms1Or9Pp6DJPjO8DVu0D0avpoaR/tH8BerF0XmC0tt5Ea0j7D8HSc6hytH4EFloPQylxhCX9RIiKCP8JWJeEfAar8NuEVblsbbb/a7BUE8BOdHGeaukLwSr8O7CA1H9PWeCxtuVesqGuN83v4OIPCrGvA+vMhCekfh+rExvmYz4hheH+J0JLgVVuty+XCFi0LaHpD7QuwSrqJ7Twyz+TNZcS69+ApV8Irf8cLGrDeqNcbqt2BqvSZcPv1gVi+E/Np3QBVvH/H7Coisof/NZul9sVDuAkw3LIRCJA35SLn8GSUZb+4XM/Gx//GKyzSj0j9R+BVZQnlS/lk2Kxs8A/N0VqpR+ABZX42wbh14CVj/9/B6ycHT6BVVZgXbRLxPTTVC/VGcda/D8Bi8t27uq/B0sY7DNYhKDZ65loHcuyPhFZpXgCS79U2x8j/q79gyH9Vj+1i9Y6tf+IDZXqvQRLKUa9NZIGvCzrkikFrGLpQiGebYgvAesDq2LxH4OV24Nf3fTvwDLNpoDVGeXNhBHWaZ+FWFcvNhoYOz77b8A63UfH5bfBMs3/GCwqO71s2zZsqKHtOB2aDQDLH/VI0HhswXHMMsRaczicTEpNz7NKJSsMrU+ceAlW86L97MGm2ThBUwQsoiGKZ8JqdizH85rFq8BqCUg1rQWRYcF9hehwRviq0aAg+UJrnmC5Lg3QMnnAtFy0KDJCH63n4EeQBA4ozJlMRqA827FU81zLan8Cq3xu14DVaDYUNM2mDqOk3VG9WuWiMGCzaVtW6Rqw6IWYI2s0si1bYUW08KdtfrHjU8Rsq4AHYklvW57ndrt9A1j1+10Mvdfr+X6YBC2tNQJsDgYwCT1dd0lWJS/sfFgQFeXxq3YVGxZLWpFmMGYGCsVPDy0kNemXYZdf9QMXH7Q1chzHd5olvaZ3Ory3iQ/sxn+gDV0XfNd1jThN09gAUGjVKBoMBlGE36rVfh/IOSQzP/DAtQRL18Oko4lS1M8Of94uwy9/o/KbOTlZun5m6Bw+Ntdq/7qfBpe0RUbsWVaz0+lZihd1GvPqCtP8MjZsWxTe4wgNYBGpwTSbzxe3p7aYz+fZtF/RO2ES+o47Ho9Bia6rqKB09lu+j5TkuBX/xphUqHRI0dK6XVI4uLKt4LpE/Sf9tDxIC8KFHxZliMGGAZ6ub5i2/VVglSdWpe0SqgH/nwKoxe1ytVofjvvj8XjY7Tab9fL2FngNMApYqP0o7XcVceUcon/fPrCq/GSSwmsgIYgXgBvy+ZGLhRqPK58I89dgWb5P4hKgPEIVhgJXR7mJXwpWAe6gJ4MF103ni+Vq/cy2O+xVA1y79XqzWd3OpwPhzDSNoBRiiq3iyTTSf9p+BlZb4STt7CqQaqk5rM5fICv+RBc2O0TKC8MQI1KNPbme51NsQed+peQqND03Usx3u1ptdkRnd3g/7IAUfjkc3qUdNuuV0Bdw7ZMTMafmedPg52j92A0qCguesBqjw+4YwnGcd0yJBdTaV4AFuACWD6kAsoqMvEWGawlWzdpXivhhodzBaAeEarMjVJs1iWt1aiArBd/7+07ggsjH7MA8ifnjmPoVYGm6JSpYqAoCE2CdQo9Ug6KZw7D9a9Br4MHcXOh0jVw7QaEbHcaoC/8s/PqzVh+NGu0wFahARcRqRUiy6XQK5QgZlkHcE8eDkNwa34EOIbWsT2BBY3cgg5Sgti5ap2M2fgyWcMu4D0odX4S0BUOR8LT+LnzPH4Pe9D251LWA1JlU0Q+40Dal/WMTQm2vKaxpLxcb/kQrxnOIKmE9sNqtKD9dOQ09NkOkPtEEcW1Wy/kAtBW50IZnVtZKMuSKkmDyEP48mUe1y209+bTjQq1KoIx9qUXJ2yyNu5Xc+YRVw0gkLN7vsRIXtd204tjoMARiDD51Mk0hwuTCThjaTZ03FH+TxhRFF+DXDDXI2Lbeg+KdLpYKB0BFoQSdOB340oIAP8IYinCQLZaQ87v3w3o5n/ZBEOBE2h06VE6hbtqgqn48/WtL07DX6ghxiJcDR7MLeoPmQydqfrRTlkvF9cvl7QLWipB21CeTAq9ivu2Tb3IWGN3OadMYcLiZWDvLpeqF/4rFg06gk4yuRS9Flxuv4ze0crktAc+iNkkCrRimbt8w4mxJBnw/ECk+Vp4+iMOJXa+3RkJbvVbPiLF0i9VO8WJGvdivUtpUXKhmJ5hM3O5gvlqv/tKW87jnjsEa+lAbBmE4rkZp1KfyJfNjAdh2F41/o59b6t9qNE1DNc36KfxSKExuhpoLrdyP2Av1Ejr41IfqhoyC5Z9yShHIvjAJhleDpbdpMFo3EzsJ2+0wHoMW5kJWewqqiLYD1kRWdUznz7bhF/ZIY6FXKVZSSi/Q4Hq1mEJ/woyIxl3XMeuOb0/c/vR28354lKbsDvyyO2xup1BPkEvWxC47cUqcx/0pJSF4/0hVezy1ff7ve07oolAq7SCYDAsXYAXJjTWmWTgHTaKX40V72Z9/fc8FC1DHhKLwZjiZ/AZYQliT5EabwGjGakfZQqyFzWpOooKZtXp+XrLvPuTFzY1Hj5BYOR0deiDtg3hwNRBYcMFgRVQrFeBZrw8nrgGwDvvHE1r5vwArkwurbjCptfwBWYPPXVPBEtKX/bltt9sXufH19ZGWy4ZEPHaTBBRxSVlJ4lapwaWTo3TwuH2RB77Ik9VKvbzCrj4cODs8M53d2MPClWDlezhl++amCEvUGI8H2fJ5ByZcE6ppBDlPgxSMk0XVLrC68ewWo4BwCy297YZupQ/psKKBIawIi6trNc3JZAQKtwjW++vr68PDA9f1VbV3gAWVDl3nTvxRz4CcIgFTobwfOUsQw+PLywvnt317I1yc9avQBid6m6V9t91mGIYCwTTr2iR0x1XwxJoCBA/C9dv7tzeB55V9PbInBTo7oc1DPkhurgtdcyc1B2s4aZasMO6PI7A7TAKQEpYeU6B0FLCW8+r4Bh6b1YZQbkFiOZ4yFMN0avTnIrnAXRSdYTAqjBy7XDDbwoaPBOiFI37BwB8FLNxD48wy/QSwQVQRqkPuI2BaAioR2m6ftpym0MgLuHJHhYJl6VY6ttmitd4zTdvx3G6fY38nlRORh6enJ9ynOnp5YSc5WiIQ3t9JXFBKYbt8FVjNTlNFm6ARml4SGyBjPA9UspxS5FanoCsKZPx4XkTRjcsAAMyknh/6HV0MbghVCPqBmqxMopckvla0PGtoWwqsx9ftJRu+HAUsGJ2upQWz2OBTISUPJ6Qwp4tJonHWap7H/YZX8kF9WGxNXQdtdTpeGoHCl+TAw2aDBz6gl6enu/sHoTFg/iCfgEZfhZ03R4VWFXB1rtoxgmzXBSpYR0GaxgorUigIFNBAjCyf12sF1jKNbjq0o+FjGXEagwkZRy7TCYunuHNzgPK5nca9IPHrJdDcRMmsd6GP7YvwwgkssCHdSW/kB8QqJ6uXI5f/7enbN8GGt2wFwCdO/X77DUjSOYWQXgItVzmMcJMMqMFsqcgKTPx6BN/ffbu7ezqBBbTQ6909OnoTkS8+7noxraZT9wpfUW3iAKt6wazVkhkU4RmrKkXf8CYFwazXovsB1s2kCIIJGTwxYPi5HQYTyprm+6QtUgeMjUXmQ1X2LBeq0/sA6+GBokKJLAFrEEcw+SH5YODervegGMxSoPqG9nSfc52a1l6IS2C8e6NUI23BsoNxBpPeggsYw1ygUt5siBWRYi9vD9vHXE5iDHd39/cAESN52b6BQtHLag5Zcy1YsAuHKhkmjN0ujSZlXEXjm+RmchNltJIELbChC8veCiHS6Tx049hr600J1I8cF/qMim+3gwUBo5aKtQI+JRseFVjbXGa9vm4FLMPAw4nrdL7ai1jPiYqzfFKEJXqf5oPiTkHyjWgd4ZTOB10hrU63D28rEzmwo3LArXdsT9INH8lVooAndQo7PwiFHik8B4Pur/c3i3QraG0rsHyI2flKCU/MvFO0J5Obcab85tUS6jByvVYP1NKl89Ydg23dUhFsFNjDySxlNId0uQFahuXGMI91q6LAev0ss7aKDV2dYPUMkASZDWS1vX86QbKFvNpftu23/LunJ/XFbjWtGOIddWnOztdQkxv28qLkEyXU2bqjNfKyfXp6kCainnBR6Q/6Xf0KsLoEq6Sw6hkDETvQaLQ/B0kA6yAYA7+cDxfTyLVaLYuEBVgX81nkeTAjRrAOJzcJVeeUsme3WXLJI/q8UFAKLNBVLqBFfr0psDoS04eZtn+7pzTaCufINMGFMCDpqJ8sr7cnRVZvpBcxL9ZT/QQWhe3mfb95JArbMyIvJB7VywEk+rK9Jw/Kd3d7cuL+fQdzq1u6Aizuj7abw7oJ7RvHg+kChIypwrwaxLOZXxslMalN/BOI/NSVEGSlq4z6tKu7oaNpMIFvbsqVaDrAxbfrg0iTsRvCJ3DHlFnHl9e3t4dcxEPIQ/wosCCXQ3AhJJZSVNv7+2+KC4VJaK/n8SDwVk5yb4ImugJY2djoE61uxGFujq8v6Obx22lZyJGwf/NeNoejEgJigW2/Pe4VWKCNK9hQq4zHVWi2kekEcIwjI1tBmaxIV9M4DvxRy5+l8GvhrTHoANvcgr0eFvXp8nk1T8Mx5LNFrTuEpTqxbd8lcdLeokaGhT0cuuNLysrBIq8RLMvSOy4cgWx1OIpUB15PbN9AOcejCpRJuIDW03EvdAVp9qTE3yPtj34XrjsIfTCFKwgV+EbjChrw8VHgpnXA2FLeyf5IIw9fgrae7rZyhYg+q3EVWGOPXlzg01GnF0cXhy4zoBqR3AyapvDUJcRspGnPglPyDLLStQqxshzbBmEBrWGr58dUbERrWjXAnXU4a0rAbx/u7wUsMZpOYNXA/IaRrY9vOVhiRoI6RCLdMqbYH/SrYifvz2AB98dXggWiUGCNp9F0ddiTfu+ewMIAay9KAfKbjnefjhWoHrQnThMXDw8jl1LsRFeAVawAKxfXYZa+YZAJd4db8uDA8EegN3jLBgPsUZqqkAAUWEhnaJnq3TFG2ZHdMO8GVgJUIpjZp78Pm3Ezj/ojOKgnsF4eHu6fBK0zWFOC1bRgc8wFLEDxpL5UIknUDMm5P52KHbbn9HAV6EoZ96C9zBgrsPpAHMT08PCNJLOlBgBYUDYwxmTPZYDFztYvj2ewsHoA60ihMbgKrOp47Fn0XfzQ6IMbSJOQ04bhO/YQynDUg7EZjek93wCsaaynS7g+ywx2g2vJJix39Lp08eyhCXAh+OBVg0Czrh/YZWs8+ASWagosqzciWHIB6enb9twwU3JHX+2DcKXQ6V7R351gJWbFfjWHG0AhmvYzeKAEC2xIsJRDI6ouimI0KOvqdLXLVQy084NQFh3N22m3cwVYlXHkmrKzHPej241ETkhXkOOwBsBa+jSLx7BFoe0YRZmmi+f358WsCxfH6+RbeCVQGawyQMvADbkZoO9uu2GiFd0PsJ6+B6tHsBhAvN0d75WeP0El/MOwRBS6bsWNUrAqhNaWvJqb5HSE9muAxehxJRKwlA58okuTG+irOYzrGJ24cZpSfKrAA9E+g7W7GizXatZgKYVY4CVD7ZCowKrjwRoAWG43g3E1S3KwpuI3LmMNTw6tptmUzUCrUo0ELFIirPFpBnZ+X01jv6efwNqK3D2DRTtLwOq4CixaBG+vjy9ntMDIolHa8BeKloD1LlLr6eS/EKzNgmB5ACua4ykng2G7hdl7pDYFo0Rp2CmVSlYExS6Owv4SLDpOYMPONRa867a1lp8khtjuSrpjkq0wIVgTN53Po+7sRoDjtJ5BMlipcJZoWqNQaFrcw5R9MNcejfBfC2BNaT5slmkvtmAt/gCs7QksSM3+JVg5ab0IWIPpwOgUveSmbM2M6YpeNs2Gp9wuyMGCDX8zqUQDgvXthBUtTloNa1h8fZcKu8Y0dQyMGApW2wdl3MIjvR1Y1lVgeU3NhNtrVKaM9y2hgtMQitAjWJOhB9Mz7XrECgPKKI1gNcdpmAT+sAiwOha3YhhrqTTrJsGC2wMXCXz4nOopg3EXYN3/FSxak6vdC8B6EkFEW+sEFuRBp+YEUBOplSqw3v4ClmG0Jxdg0Z6jW/O4hZMkIca+VatPgtCCb0ew3k9gPUkEYr8jWNeYDrrlCVhBz+3DWQDVUEz0IHqMEDJrosVLRqsrRch3u0tb/sA5AKxWkEwKw0KxqNOwZRCvUipAwo9MN4qq01uo1efMSMefwVKkBcj2AtZIwIJi2e1pE5y01APnQDYEWL3WyBkWnLhDy0B5hwRL5Pv2AyxLgUXCerh75HXftnQAlAcKHyNJfOihnLJejq/b7R2DPk/Hq8HCTAnWKAl6/eliQ1U47UdxcwSDwegBrNpstZwy3g2fupoyGErbHEqx59PFGcFasNy+5CSMO6UiSMse0nYbqEuzQXX892CVAVY0F7CeHh8PCis0ZXBiWQxcVABYFg1XAQH2hYoC0psEWHGsDycQjfNdLrO2j/uXt4dvd0CLYPUNIo717xGsDcF6PRIriKz7N4L1fhUbFks6wKr7SdAZMBREpzCKPHsEA8DomZNEm+5WYqJEntuXAAj5dJoyBDNyYCww/RTeHz6KPcsaMf6gQ9jCtgJY0ETd8Q/YENbpPmfDM1jbz2BhokJZsTypboZwLphoQU9oe7H3AW0Yx8UCvKroBBa+f3mFMfYGCstjGyqdBtYRKQseziuN5Kdv3zAc/Amw+pWrwLL8iQ2wLEULDElHTVpXsTEa+Ykz360w2wH0CfkdtuaCJmKvlzChzWJSUsq9uXkG7ehaEqwptWNw3/wZLtmiSgf3LwIeYDGeNcNa6wDLOIP1+Bksyqye7oVOvQW3QcB6U4E7RtC56XMQsJpDuzI+seGD8N8jZeAJLItg+WEYGzllyYZR3tV+9/5+ncxqWj3HnwwnXndAI2udVcahp1FkGWC0oZkt4Qr0+13b6XUX3AdYZtUoBlYzP4TXLJtkDM8vZknidZiLYWvNwLO6JYgYUclGDpbiQkVZD2BEAcsad0F6RrbcH8Fg94TqTgUFFFgGbBioILNuWhYo/8AdMrUjlrfDahHDhZjYFYqR4+Md0bqn20hJf7+nP2QwT6sDgeX6NSixfX4re9lzVwwGNOys9q8dae6UCliwQBi1m2pQgXV+2BtNbgoaJPrtoOoOh6PegDKbTkwUtgQsOA8LyRqBnzifBV4Tfl7Pd2pmMNGsZoq5wdiDwPgRWA9vApZsWHQB1oFgvdFufbqX2CD5dM6gBIjXHRZGvpUulsvb2xV3WT8a1E9ULDlYHawb6VfCVZRpoDA40gJWa9SqtRms7NSiObvIb17lv6/oSDd/fZwJsNCB81yob1pG06K4OKDZXouO3WJNsG4mthnyggPc4yhOfN9P4lPYfLOcG0U/8OxyjazZa5nOZOLRKwJYWXQG64INAdbTZ7B2BOtJjO/vwLIAFlWQY3FXbpBv/g9ObZpW2nDm3ZDa8H2fgyVRhaczWL1WU4HV6VYjufvUhbjBGTSYdR1YPYjpG5e7pIf1IirSYBgJWPakYNxu6FsBLC1eUGLdRtXUHYVp4seyDysxiig2arZd0BRYvVod0FUibrtyyb4GrMBpQeRIPFS8edWYt9MNQ6toRbTg3x9/BVaPWTUGfsSQMwzhpZApxiybOb+OwQtlQSbfuNP5mr5vvw2wAu7M8/NivBRvFjaWNuV2PnyhNK2UjDT2p7KvAbKqggNSr1koKOh7PU0LEq9Cr5zufOUrwKqPGP9I4A2TJDBdlZ/iGtw9T5N20XKFsn4FVktSDihlYFPLLjFjdj1/loyuBGs4HHpUdVAK075rD32CRfYc6unqoMCa6FRGuGCaRszQVHuLu7XsAaVxHJraCawWwWIweUl3Pv0isEatlkOw0BRNSGatJbmsYanY6V7Fhi2a29zsHzH/YMRegRh+tq7IBJTpAayJzm0ZaNC+Nxn6yUjJfZjsACsbdG9uLNj3DHVFUWilWFuYXLuNYAVDAvrIbRaGDcp3ActLaKkuRQh+CVgFmReTiYx+13J95oXioeMxtSlTkDtdg0b1r8Bq1ns5RMzTcGDBYQmSYNSqF64HK+ey234/nAgb9mBR3FjjqVBWZWK7qexx3fatkZ/veMGMWk6ZcRa7oas3bdMUJYo1qkO+u/3q8v2wWU31rwHLBDrMW+5za7fTM03aAt2xpCwVm44n2yK/BqslORqtlikHkACYKY6QM/oNsCbaVLgMYEFm+TlYLp02gmUPu7RyduuFUQtmEuhg2tMyG4yjqFtx09CCn2MrLqzVRhNbD/vVW2ZefA1YdVOzQpeBQDK9Va4VymVVGQBwtYvNMHS7g2soq9Xg8R+rVKqV9GbJCjyzWJ/4Psyl3wSLXNaHSWVPxDfwvWoEsGAi67ZWnct24NzgrnVEZbDerLNoGlUqIaDyEnuYg0XHd1SwojNY0VeAVS+6kRxhGHfHjGPDcxYu5EduuZkk9A2vMB06cgQJvaiUcdzMPEXPs/TfAmsNUxYyy+V5OQUWDD1ABE+1MylVFwxQ3Wa9VpJwf467CYuBkYZeAtMdPpM9NE2Vamo6gVOwUoAl2xalrwCrYNph2q1w14F5vA6MwYkCC/P19LIXAqwrKEviSeNxX07TMD8RPY4rla5VueL8+wks7xNYdRHUjlUlWLtbwwp0zFxC1bx+AANrc6RmjEtWMgvbOsww3NY4gzUpeHG/ugCtfhlYkySxdEzVChPqfJg7dht/wvcEZZWc0L1KZhEtOYTAFGiKEGYMu8wLKl0FlsTagxNYg5AbpiM/9Hud7njKHQyAFerkqffNPA65C3R7EHd/YLjNtjXhOTuz/gFWC+5O2Qq71cXm8FVg1U1mMpp2swZBD6wYl7RBXuSpbqUIb/TvBHzvDBYUQ6+pe7FXscKQJ7PcdieYJaYdjD7OSDX+Hiw70WBRncCyz2BF2S3tCSOs5GAZMa6frrgfJ1lY5rBcblvtpmlegNVyTBiJ1RNYg68AayjVlbghMqrXqMrywiWVcQRPpel54khfARZNKj90ap3Qw22ho9Vgn8KSuBYsc2jfACwJGA7CIRNiQD69ToV7yTREo7h/BsvvxfM1sGLow+rVh0zgb5ufwQKdCWXtRMB/BVhD0JJt2k5uf0OJsLxSkxDAr3fKluf2fy7gP8BqQsn3ZJgWyAF+Uotmaq3lXwkWhAzcHQELuBjhjT0cMWGKCX3VATCC7ZBG/dt3BVbSgwsEyoJLaPSwvu1KtVsxR5dg1TRzQpvoltmDX2PBa85sFsA+MLgDaMgZr9DgNkkEZwsWPKTZVWDBs4FV5Yehz+SyOJZ8ax8fzn4HrFIqRum0HwbQawSLackVThj+HUwEgMUAU5zU0tW7IiyC1ZbMEvDGJ7AmAQd/u/syd0eDne24XVpWTO/tn7zofh9WQOgVi1eCRS1vwBUwLIvn/jo6PqHzFASj2vVgVQZ0d1bTPiymghkQrK7r6t2FBKUUWLLd4temGNNxzTRbgFWRozW97yhrklhf6xsWRk7bVcGZj5Ml6s+o4lkKrGtklhX+4LDHNEvFS7tSwAfWYKGiDm4gYFkAazLROvM1Qw2DQV9kliCUEaxVNh0wGaLCw78Ai6T1ARZ8Q6bCMuYzsL4GrHA85dEUCdddxv8W04reLjddbgn+LOpwBsuqGfPb5WXwUPW0nA8+4ll/D9YEYKl41moetW/OYNm21oMJL1tSBIuxvIFhzAUsybIZ2d0qeeE7sOoBbKJIdfg18az6yBhnDMpuYA5zA35zaqt5pdRuT7zrwNLi29XmokFQSOOO9PVghQMVfkpLNyKzeM4erOVzBMz1imiU0k80IBr2+yP0ZtwTsLgZ/RksKGJwRrR4BlhfFCmt99yKOGR5uuT+fJ72edEtWfYkvBosHlz+aNwIy/cNfwMsicFvVtPaBNIHYMEVoFqMs7UkBUfMCJQDAQIWjS8a0iZTyAFW7zNYtu01oTGYvdT/ErBqo1A/gcVM0FPOs4ClW+VyGI+vMEqt4kDlOqiN1qMkJR33tCXHvwar2JL9iuFN2KWVcFhnpfbELo96TGAzh37SI1iY84CZW9yvJliH/ftqYME2GdW7Z7AKhdrJzLLNskdbhFZu9wTW9hNY9wQr/W7D4unuBBbmK2BZPDA9dk1tlKgO8xzvPJ2eufBzmDilYpjmAv7hSXZ3uE/07cLdqfEEIyjrBNbbCxPFtzwghD8xnb5zFVgOHAdYwMw3et9kWMd2gSlsUQiwZjDXD+/vYL85j6NBXQ4os0Rvwj4xR13R3wBrJEYiwOroTatdca3smeD2z1thAtZHqsOTbLJ2+1QQRnYrW2HMV3+43z5Inhm3wgyo+DJMmGarFzcliHQEYX3bPkm2ZZ5RVOm6JY1gye6O7Dm+7NVW2NPHVpjeqYCyOhgKN1iZFM1UB+B+FLCm/Ssoq9TpmKMJNKLFM3Pvm8V0Wq008ZHnWtx89YHSO/1hhrAO7+s5E+y4XUfN3WdCPIwfw7cYtG/yzLvFQ7nwT6e3z5Lu87F9n+/en06XECyeZenmuQ5M5Xg98NTKg6R7qn3D0DeLzU7HhwlJAX88ch/5SfbvldBaAVFDLyTpx470A2HkJuvbt49NVnAQbSvZZGUK/JNqW5WhezsdX5MY0uk0Gf0a9SS5kdPrRx681km7CU+MaXy3ux3WZ8q0EebmdoUxJTMJZOM7rVoHettyDatZrDXticy/Wp2vniU62HVPYN0LZeXZ6DlYPUvvgo2zfEcaMojEJQyrwPLB3yOn4xqxbN8ft+o4wf32BBb9eaNSuLkZn/OzJEee+al3n3ak4eIY/Rys7QNHw1wU2Z2+NoumbdmNOrMmqOYkcBxNU/j4dBFHo5BgMZIFklrxYM1mMciIGo3SAQysHmSV6bljRsKbxQbDAbBHo2p/sQFYmEjlnMx2f/+U5/SRuJ7yXAc9p6zjD8FyW1AcfgCaiEHRzKJRYD1BhL9cgFW+BOse37w8SU6EJIZEssPRIljdE2U9bO+Yy0tSZ4LWlVk0baaPAK2e22VKNrk3TUf1UV0bOp2OwZxV+nggJaZUHMF/mRwZwxgGfUvcHNtjyvO4266bApabRhGTCEGGllE5J7MpsPLk7jNYecrRnvz1eMR6vLyoveu9UBaLKPmB6xqDChdJwHo6pf4BEwHLtYY3N9XoI9eBEvzh27fHFwVWFIf0v/2QAXGRWa9QMQqsJzkzddu3rko5sjxTq8MX56mdtZz6iaZ+q1XQaBXLkeW57DsDraPkO825WUELikwyYRTOkpoC3Y5gBRrlhgZ45vk27vkXYOXK8HQgToGlncECJRxfH/eSJH8Gy5NgAwhrWpmuDxvJz/rIk3wkWKwwY4OyTokhzI1RxzmhAyTtiWDJLjv5ZMNc5Qfmf8v5A55HeT/cGtdm/k0KdXrfRjRdvW/Wq2kVxnmrXmiOmYg2wFTIiCCEWzHi1re363cmPeAq31FBOFV9wbJHTMElWBTGzCkNe/onsJ7OYL2dEnArsMSyW5FGTwRr/yKq4J5gRX3X4eFl3UinRkaw1KEw5o4IWq/QhoalwCJlvTwoNgVYkhC3Z8GJQd/o6rVW0zKivgKL+SenE1M86Lm7CqwijJTIM2vcRoPRfnvY7KAQo2mMaVgwglh5oGuAp2D2rldrHk0DWusjjV6oZGI1gXjrSgUUwCYpYzSseAKY2cqjovU9WNsPsAwm4MqOrQLr7VUO+QoNCmVFLnyBkt4xmAhPsI4qtfshP1KSg+WZE7ffnzNbWR1k2eaHqpgGD7D6fdYPsfrMSNzICdftQ553/8ZcNoLlXJfaHdrayHF6hhzcpeXSn6aW71hRVK1G6RiWAD4/Ht/2683jy/Ztu96AdmFFWDUV3wVY43EEsIa2SWo34BbKMb6uH/wUrKdLsADu8YnLvH1U5woVWLc86++FMBsiMYaZDPqgTnXlB3DEjDJCr9ke96vw8B8J1uVZMJlOX0XB8G81Wz0qsL6ps3pPb1z49cLoWdeB5dmaTDKe0kzYwEyf0sDJwXLLTSuFU6ySfB/3om551u92QFtUwJJ9Flc0aK8ngoGkPTXg+JSt7+ysH4K12ByFJ+4FrJwN6bePu/04TaP8pAzP0j/JuYCctCSVkmCB26s8YXEG6+lBTg0w241Ix3E8gHkM8mTa6tvD3TcRWLj4KPRxHVggCrckqQS9eErDb0MbCp3nYEXEoktvhxbJq9h6MFCEtKaG36JQt3lOw72ZnLBi/gxU4SBumZPhr8CSOho8jkKJewdNvs3NRZ6ekFMDKjUILgRtzbsHBdZDDhYth9ABWGCx1X5P+c4R3pFKX44q/n3KUJpmmZwien2Tq+T/Lc8MLLPrwMI0KyVbcknCuAt/WbnLWC8mHXcFgokbQVPuWYriUa2cHFImHL0WwPJciL4bBZYv0l3Z+qE/mTQvwbr/gcxq+UbIg05yHEWSrXOwXvaQN9l0UGW+85yHp/Z0VPI0ygfRhu+buWWEoVNuu2mfWX2v+YHEbzRb1TDXUhtG6fXVek9dKE96Uzb+nvHca8FiSrYdBCM50IUHsjYDzXOjy10mCwjYwzCtSiELUNabQuvbXh3TMzDWxLPaNk+F3TiM9E1p3NL37rtBYOvuj2WWOslKsOCR92A75CdUPxrTTqU2SJbNqYHBhGAzEgXPMj3wjBzPG2q+71mltsejJmtwsxwaxgAfc7CokVh/Zs5SJLt3HgrjaYFcF36Tk6w8d3vNcZRutVspD6nHeLRQMt2lkgVkq+Ga5eEQnoTN1E+aTu/7x6cnBda3LRMdM0ld9mpOcjO0k5SHr2BobHaS1WVEHk+y5ucNtyxHIYcfpLpCfuzX0YoMjPOKk8TlE9Qpupe9KkDDKJ1EVeScNbGiNDi+7jdwJGpWz6wV2xaVKvXQVh3FY2b3PdE/XkQKodSPD9v86Oeb+udIR9eIrevOSBOsQqFutnoJK2PN1cmwQX8a+yNzaAc3k7brhhZPq2woYc9rpxyvQRpLTIx5+1NYHeqw4YIpZ67UvYqiS5klzs5LngcP66bYtJS7rkhLwMrPQYuTe8qWParzSTz6rOQSi4dwnBZTUUo67AI5X7VXqfKSoHr3oEpenHpReD+cVkU9g3b2AGBp14BVIVjqVRRamMagoN27Ou4Ui82ZJFbFS5IQypIyVlyFE3HJiUAIWBif5uQGko1iYSenBWK4vliJMcA6nQo7uYac9v5FOdK9WseKZwnzvXI+fDu1JzmUcir0o6rIbLci3+Xo80bOzcNJrglYRqQUphiuVHbE9NvdE9Xi+Ug5fs1thvwgdn6O1YivKIKh6jqU83d31CC1KoakUMv5eZgTwaSQztw20GJBLYjZ99eNHNmWA0f7/UYdjAqTpG5l8ICUa7TMwh7rH1WgPSzZWD+dYPrAKo86VCpWOEukVIHUH3g6lyqQI9Pqch60UQ3dkLYfHnMbCjY+95hrrIFhRJIRTPrZkqDyXk71VNSZDEGS7f50+J6qKL6GslhsVpV9rw+5T9Ex4mjAwlmUOmCvxB+FaepW2tyb7Fk8QEfGf4EKV57VUQ7VxnESJCldQuZtHZbzlOHqToVF1qyucTojfcr3Z52GvGII9GiHvhYzn9UxXaL1cAYLcL3QP9lKnQ9li0Inn+vIRF3L/ACLvUARbEBdr3II+kkd1H99kaM+Eh3FUjzKoTEVgpfjNVHsdq6pW99sNsuqRr42Svwyy78N5suNkjs8CwKpH4UlbRQkvqt0+IGlXrB496JuhLYgOVLKqx2cSzoYTJBtabDUum3PpYEuVY4+wIJw3p/Asjoths2EKljfKGe1h7ucmF54bPVBTgQrqKSAyLucMxqkbpPpCww6wts2TuVV9sf8eUJH24dtXqblXg7gSRB/r0xrcbTTuHPVKxHIfoVTHfOJ1znRFmtUwVYzUjj809jilk0QGn2BawNhuVEbUkdWM1lmLHImafESH4y6RpIEpmYlXmXyUV7lshqFWItT6oBuXrhnqgr3cLd7z8JPD+ejh6yzs70/B/wO+x0PRvAgIRwMr8lihxL9d+OwK8WD3nnWjlzHYM/d3d35zD8o6x54qYg06/uwQB+wSsMry0ZegKXZk6JmxVFXOJGFcWCkw+FP49BnQh9LpEaEayklJlU9FNLZ6naRUfxvxGig3xoSrKbntZlGJYL39TNYef2sMYuDl1kSSqrXraXM0U7EFKyAvfChgKVEz15VopPKV1lUrXieKg2pSuqFodtPpajB+04JOxp3UgHihBb/ZDCCfXDbCj5CFQrGqV8N1nBYLpfbwyFtcNs1XPpQ3NGEUgQIYDEjjkOrUtInNyHPd1e6mexV7khgNIV2tB5V3T9uX0+ZZxrCJK7ZcK47bl5s7PWyqhydS4JVrQKske8bUs9Q6sG9C2UoCXbSYQSL9SsOUgdU6u725Qg7TESV+suq05bFlHK1tyI18PJKUi/5/oYqWyZkJcVEpVSFG6f2cFK4Hqwhi42xjJ2dJJVKP6WoXIlsguSiIyQY6YzNY0Ahj7Jncgpms5HKKyywt1Pec59FB0kwrCQCXygIY1XGThUbEzsLv6kydkZED6JcN3uxVIlkKRspY0e589GkIAvDBQqrNZVKv1oRD8tmvXcBq1YolJmDRIaWTo7H/Y8bC2ytlrK/HqehY/9Ozb8cLLgsmFsSem6UTvPaXxCjSxgRhpy/ZOWG4dC6gWasFd2BeBC3c1WMUNUqvZ12u3JSE25lGNjMWw4CYzpfb1iHebMWaNH4J42TOOqPq9ZkUm8x5sFjilIqdrVmsdjLColSJXGn6kCSdwYD6A4WYSJYUqG+VavLC4JcRsJlJSX89lFZMe8MMlGVpISFyMBNHDSGLNZR+B2wwIvaBA93krCip9OBUnwHKUxHfxatXynWsAh2QQOtxYP80FEuauTgfr87MMaVSkQ69DynVh8VbIc1jH7UshjduOMuwILD0ukPmLktha952my1Xm8+NZkixIKBZ/QhSC1tQrCGpm13SFhaYWiPhmVXhSnymtDf9bE5AyXHf9LU7zkjsFPwO8WDCyWdJQIp5Mtms1TqwJbvS0lJERGnWtODQX5oRiqLscyrKinK0/4sNhl1u4YUb3f50hm+YKFgjmwq9fQE7elUFzg57PU6Vruilxt1VkPusBKWbCNCZqafsovOKUYkhVMJfb045FFQrVAs1vLjJIV6odzkXlyXZ0IHf+ki70UOSoEc8V+z1sJtVxaTvCyzewaXNge9nO5UVU8WFl9JvfyMjiDIN50KqRMpVn+kCJhHFRaUtVxWayuV8sTy0cjsmLXLosSqZnBeLljV95XS0fJYXcowWxX94+0/pyK5p9Okvm+qV2D81DIqMSm5f3o91/m1g/g7f+8UXzzg+NbFeZ1/U5S6WJdUYCl1I8WmRX2sIRTnqrGS70oSUFSF1OU8S11Vh9xlCfLz2yVU0Wf7L61l/qgQtRSu7qgKlVK42uUbLFypd6PuY2/5Cz1+9cKSruTJs/L+mKXR+Ivk0KtOzOGXvZYBWI+8cFztT7Ocug4Ur+uNKre7lkK+G4Fxt1Y17+QdFrTIc7AUXupNJMMhfxYumvbzNw18/3oC9Sau8t/d95PyfF1VgP+jDn+lUv5nb9P629bwfcfzzi8auF0qwE4l808nlIXYFiy51KVpFbtuRf8M1uUbg6560chFy4mMVac6v/fOseLn14yewFJlp7+8mUkyGdYYJJJXocBMWDJ5YXeuDk07QBmHlJYQmfIyAFYe98K/gPUbb2W5ROuCHa3ib/ZzidRJJbCz5n8AVp3FFDSGiWLoxT63R1LYoYu84Hgu7aGeDIOFF3xIzIp6Z6QVhp0vAuuDsjqd3wRLb38G6/zLf/Sa5PpITkB6NN9jg2WXLPiJSr6LDh7ozO/i/uxo1Oq0K+rFMRYcwn8M1uUbbFVprvx1k7/95j8qClbX55sqLcmD+tvXQfxLPjTNkR/4vtUkS1q9MJ3NZjE3Kk/n3g16jARKmsPxyGsT1KuTfgRW46L9NGT0k5caXXPvp/FLrVf0ViqpQbWbMqrf7edvBfuHzPL59jRgVq81zbotx2xdHoeWEw7iYcBurtdbhfpoEgTe6RUVXMyL11M1ftJ+Hl9r479Oh3mEHfWP/PLbYHU6ZrPdaOow6mAW8z8YfKZ57sT8ureFNUP4iLTa6vWRP+J+hj0sQx6BluTdar7T4vkZvufQLmowyhyyKd9QxRcWFOUlhPxXz0f2YVQ1Pi3KX/mH71QDSTbLzaZVAnY0Ye2Pt4M0fnJv4y+c0WwUG+qVFmazqDXshtY0z6Zs4+/G8De01MgZBA9oaHzNUcO0zaIOQR0GTmM4CfyJWRhOvBuPFf5ako4s54utTpsXiQ7keVASRJsVoTt8hxx8Jv5yooWGLW9QapyTNk1bvTwvH8PpDV68swiXha/sK1lep9SU96uYmK52Jir1r3TbuJg2EW2YfJZ5vqguT2jYfKApkPEtYfiMf51X4Nr3htkORkH7WDMD22a9NSeZBUXdhdk0mznmLKmz8EMQ3EDGj7lzwZRDzZqlfCsra6BHU8ZZLKvR9PjmkWSWdJqep2khfpExywoEDAeavqOZ6j1wQWJrrBiEMWuOb2IYmJHpdAAQjzWBnjRtNrNKYZh4IDLO1fFthaqj7gpMmIO2mgKxChxN8/GVMwvU23DMUd2Bk6zVg5mv4VlagG8afpAkDc7U9zU1NhnGNYQlYNGRwD22FgQELfF0nnpkSMqZJZNA6rLdsNSTm4xqQWBCR6aSCQGkWCQ4YgFXuwEoPdvD5EqWhTEnnoMOsAQYneNzKgQLDyNafgIUA3wIErOJY8Px8Yul4zY7mXlFrBkw03mw2Gp2ADEAdUzcbdoEWuDHsPmmFlsOQnHO6A3fJ4Gf+PURUG1g/MXAH3HDZaQRJi5RkPh2kuCnRgj5/OAqnrS5WEK2+D+YmaZPOra8mGet2w5GgjHRQm2GKfd5LAtzKHbSmVUZd6O0r0grqnocBoabeKa8yrHjWGAnL8BHTiOYca3JbBKb54QbImwxzYYTOFgwvjXIMf2gaaELzNIreTMs/sizNG+W2EUA1eBo2QJg3MB9CfEXmEz1BCcBhwitgby56EHDxOcgZX82M3EDUHM4V+JkEyYNX/jXvkWTS52TMZ6fLbLE5uIns3TspuFssZgN7QBU7Jku/ki7oZUt5olWCmeAzrO8WSrRqzFLZzGObXuYiWc5oQcCa3uYjkNx4fh+ww4wwNk8CyhoTL6l0TZBFEGAiZnQvmRQzH6WORpTIx3H41QTUs3M0+QFTCA+0BbGjL6cwAfjkqXxAeZt8kE+VjIRBLnmi2UCeDkf0KhdXyySBk/4OgIRpRYdfJB84FxpTpEPMBNoD9yxeH7OwIma5qVJRQvbs+VykbQDL+HuR7hkwcPK4nmRhMQigVCxZiS7RO1Q8jchcs+2Eq+YhG3PKjZtJxcIgEULFsvFTOSxLSQgROIoQLDOoC2QyCxwsDAB2BN/+LiaJMKJkZqckzx3hAkxWfRgJ1gLLcFN7EeJFrTl80xLtCBbzAJI3tkz/wQ06EqeB660lR+MhbuGtBqgSoyAK202Zsv39wUGRCtFr4QzO31+XswsSiIvDfXVbqaF+uJ5HvJJ2jAIRvhBZtEmgMmccZ4iALUOZLvr0nY2WakSQ0sovbXZ8nmZcaY+yQTogXEo7HEj5RfQA1OANhacmANdId81sA4YJkUTAYY2kHdKAWiIOnzvYIEhAjMstanlF3HJBayAz6QAnfFPn3KKLNsAOYNLGzxJbOPjqwQ8HxcowILl8+59OQNh21i/2WKZZcvnRVrRwW2kCD5M1+bLWXOCEY54wbBg2hO/oGX4GqhxwiMynjnLZl7TcrP5jFo7we2ZD62OPtBJw84yCvNsDprgbBW9AVX4DHiynSwPu4Ut6l19p8nboRyqTS3JZtlischs2gE+HmpzLSAbF1xaCK1ZliSz+UyxIYh0uQO/gHyzhQ/a5cwgXWyOkt/yD+n/ygBDoAlFgk4xl4WQp58t5eWPz4vQCq25lFPGwnneZLGcFYZgp6V8BioPJrMFr1yCZuosh0PWAAODDIFNBiW9UNWY8awEqwySkW/VNYEAuMPXZCjIF3Le/Pl9xw/MRN3K6ZgEsuGcugPo0BT4fa5hqfDTzJYsEQe05hzbMvNNDFVLMPYdH+r7/FPQly6T8++4NrkeLJ98YZqL3TIR+g8SmQHaAWB5Mw5jBap7nkOZLXcLyPwFRvC83O0yEyJ1IUiCGOraJHDqpBHcP8dARQbiWiK7xHoQLEoRfp5kfJatSVfPnA83DiDgffXRAhwy50S5ZBihyCu74cyfGfBHnyBaXLjQGgu5AJ8DA6iHxe59BxoLRlgqdCdgZTAY+VCRy7z7GVRtLnCLerajXS/jsWLAZ7fU1ARsLds9zxKisAgbBC7D1N6xmI3h8n2hDYdzDjbBHak9AiQLXovbQWcjKEXYAkDFS5Y5WOiT+ATgR4KFviD+gjk/10ywuuPI7w51lOOrpZpDrnDt8GQODGyDcUI+ECA+mqTa4KMB1pJg+QuwG4Xm4nBYziBb6ks8JXEoS7CiQUIxArBwFdcSqlGTrnI5ep0Nb8Iuhj1ocv4kywV07whUpg3JmCDX2ep52dEsmaGvgbK8iSajxMOWWQWfrPCwmXwSBPAlabYRoZBThTbnq/JAnAsFFjoRxaRATGbPB/kaRAorTWSWybup9TNBAbNf0sLHOCG2czrCz7kmw2iYBIsCkf3B5SEcAB0Cfpez+ULzEvVQrbE8LBpq5NJJPgv7Kk+RWqnBQeAZZAce5fLJZgttNkkwopnAAAXoE6wZCQFWIx9j2yxyV2kCh7leF/jI0lBwkFuAdpEBcZihJLrn3YG0oijLDpZnsGaUT3gyJujAAQFl+BC+/KoR+IIIprt7hmnVgLaUcapHC1MJG6pPnAbRoM25UAKQ2hB0bZNyYHo0hGlMR4haEG8I1jZIdTl3rvN2TGXIoOv3Z0pGzBzCg2A5hAlgpXha6MzkYUkZK2O2ZXyNAvgj09xlvsgYd5DQ0QO5zJyMomGhJUQGEkR49SSzGlhzM1nmlMVvIaNnPmkOCs4X9pvB/JmzB3QHOoPVif8d54McCNZcaErA8oWy6OopyvIVZYnJsIBZY4s2DwLSrENAF6aaRQ7cFSK+Ydr0SGEJcbJQ+FC0kMT+/J0yZEFBiRnuSAJL+UgDWNoFAc8DnTJlDomHLyBv6CjT2UgoPOdm4oHGlrbcIMIIYPna8yGjjBQ5JcSRcKIs5kGrLb/Mln8BwvKwhGXVoDlpfmZD8OlS0DmzIcTaUpgDYPEpomuWMNPNRHjfRmdYFNHKpKz5qSv7KqsUOmpGItphXKDdORkClA8BRvZZEDPKwcXz+wGyv7Ek5XLEc64JVPAoUQrmHZO2PVrqNLtNYLHjgAKsvupqeQKrYRJeEjH4gsJ8sciBS2zQpGOLZoGfR05dYC12CzhMGiMWNjVgDtZCE8BBlQcSCHUIjACHQGQBl20JsGB68lJYIcnzLoPltqCg4UdwAGBkzE0S5ty8RsA3aO4GM8VxDTsRawtew4xzObyTcmAU5+IMBBxgKItZApsFfE6VB/JOqNf4daZJ4IDYw9qk3UAm9ymV5PuZmJgBJPf8+XSHoMUiuhAbJg39BDalSTKGCnNA1Lx1AZozuaz4H1JfZLP89PMnwzQIaFSflhAmLgSCWPD8+/BMk5l/gnoX6g6sS8JXBwW0GWGuXmU3MJTki2OV0IOHcKV5G9DSW9Iuh8MHEY1faepScgMrSM0FbHMNTjVjRBy4EAg9ATgrvm0nJI+FB58Z9tFCXhyLB5hYhAxqjcam9DgzabPwj4zLxliOuMJc8wyuCZ7GC8GmjvAANfdMTG7+hKBJ1AVZQAdTWfsmxxaQDjNOyaHlClNi5s/hb5Lg1B0wUfzZfI65ys8r7QaNK2ar4JByeunvSNRGEx7FUisqFCdVImbw62yJdfqJTZdyKZJhHijPg0E9qnmbnSQz1VMeHJUoEF1RRlJAtIFvqrgpFsoPMNMZO3Vysqf2o9UmAU66jvTjaOOjHxmwCoKCuxjtcc4hQDzFDkCkDM5xvGKhg1IhyeAX2CpIY+dRV4rt60LMlO8m9yfoZ8GJhYBtJAxigTTgoDJg5wiANt2YPMCRBHIP7V6AQ8XH6k8ZppFIZI7hEhMzDsQ3YNmrIMgjveyMoSzalxKKYNyGoSiquxnNCr51OY+yNGxWcQbtcbXYqcDWMBsSIjZ5z0xw4IMaKk7PXtBHHqXRJFIK+eIzLMhX3tM5Z3FoUxZcU4FE27/SJmW4Ft5sQHLg3Fm3E3xIhuIqBiq64kBPmTJ1okdzBteDa/FDnLNnOmn06eHrOBIgBqIB48A2GTlQMUoQCYMhNu6XOZkMYTmMVtjECqvFmDDYkXEu/MF7IasJoq1i6Cq8zniNdCPhVDC+D33HuBjjERIpgoPLUDlHTj8JjqVNtBp8rn8KJkkIMXAap8D0LxtkMqws9oGlg6zRkjxcQbumwRLNErS1GyqmpGKrjPw3FL80Tq9FN2UeGK1IdcIbmBKzSkR6gnYb9EAZrGPMjmDJ8gI9zBeLP5vBOuYHfLQQkCPBTIa6WH61oaLgoDfuKYmgAHkKOZNAEsUViexNMFDDyLWDpxInsQAl+EVM1fKrrRluBF29zwNB4QsP0jH3Z4p3RJY1yGIOZsiJJNykkbBqIPFdx5SdCM7HMRXLc3l9W223CDH4jKs1KPhwiUQzbQGVQWW1a8EYKlYokaAfgAFPQHzanLKiAgn8JhICNiXqZwI1UzrwRWDBtGdQUN5oz6+E37G4gJSSC14BPsaHwYweDQjRl7iGctpt2e8wFblet7vDZYHVDJXuOBK5hGg2ub9ARtQkxO1TaSpVIPPB4MjyJvcdHEdYxRETicAxXMvgHDcObFvCW+yRYWRb5A4pL3GEpdX+A0VyIg8l682ow0hg5GiH9bUpzCnmeIPwjs8xMKBjUtEQqgbVh8/gFofODQgOq2FyO4PSVQxlXKlEggSmNQleq2St39hDdESCNlRsuMGVJuiAGxPmV9xWE7Uieyr0aIRURCg4FCziuM2SHH3RUrZIX5Hc5EpQGMkB/6ovsQScjGyHErKG+hCDUP0IggxiQSHaVJENLUfXlDhgQ4KFFAJmoPjcpxVDQuEIZVIU7Q6/JIUypMFHw/HRSBJq61DLNa35d9uq3+1nfNChKQHKxmnzNd/5OW1hqrmpu6l9ZBuvweu58OZHRoPaLRLWURI530M11cafbFGbH0/N911zsXRxh9oQdU5aPt+PVl/Kz8ZZ5uBBwuZavmN60Q+NA2ELESD54087vo1fOThiuP/9/vf/dmv8P/kYtVn32bBofEXvjS8C4D/o5zK14bc6E8oS21f7064ASzjWtP9gcY3Nrrbr/4B1nWll/0aazR+wlNT6064Dy/T/gHUlWGZuIf9pVyX7OYn/B4irtr/sP2D9Nlj/Ax69PpN4ipeQAAAAAElFTkSuQmCC';
@@ -818,19 +866,23 @@ function serieDias(fs){
   return Object.values(m).sort((a,b)=>a.k.localeCompare(b.k)).map(x=>({k:x.k,dia:diaf(x.fim),n:x.n,uas:x.E,kgAud:x.P,end:pct(x.e,x.E),kg:pct(x.p,x.P)}));
 }
 /* tudo que a tela e o relatório em PDF mostram sai daqui, para os dois sempre baterem */
-function dadosAc(){
-  const {de,ate}=periodo(),fs=finalizadas().filter(c=>{const k=diaKey(c.fim);return(!de||k>=de)&&(!ate||k<=ate)});
+function dadosAc(o){
+  o=o||{};const P=o.per||periodo(),de=o.so?'':P.de,ate=o.so?'':P.ate;
+  const fs=finalizadas().filter(c=>{if(o.so)return c.id===o.so;const k=diaKey(c.fim);return(!de||k>=de)&&(!ate||k<=ate)});
   const ids=new Set(fs.map(c=>c.id)),as=Object.values(ajustes).filter(a=>ids.has(a.contagem)&&a.status!=='sem_divergencia');
   const t=fs.reduce((t,c)=>{for(const k in c.resumo)t[k]=(t[k]||0)+(Number(c.resumo[k])||0);return t},{});
   const kgAud=(t.kgEsc||0)+(t.kgFora||0),pe=pct(t.endOk||0,t.escopo||0),pk=pct(t.kgCerto||0,kgAud);
   const pg=pe==null?pk:pk==null?pe:Math.round((pe+pk)*5)/10;
   const mt=NOME_META[cfg.metaTipo]?cfg.metaTipo:'ua',metas={ua:Number(cfg.metaEnd),kg:Number(cfg.metaKg),geral:Number(cfg.metaGeral??98)},val={ua:pe,kg:pk,geral:pg};
   const ds=[...new Set(fs.map(c=>diaKey(c.fim)))].sort();
-  const perTxt=de||ate?(de&&de===ate?brDia(de):(de?brDia(de):'início')+' a '+(ate?brDia(ate):'hoje')):(ds.length?(ds.length===1?brDia(ds[0]):brDia(ds[0])+' a '+brDia(ds[ds.length-1])):'todo o histórico');
+  const perTxt=o.so?(fs[0]?titulo(fs[0])+', '+dtf(fs[0].fim):''):de||ate?(de&&de===ate?brDia(de):(de?brDia(de):'início')+' a '+(ate?brDia(ate):'hoje')):(ds.length?(ds.length===1?brDia(ds[0]):brDia(ds[0])+' a '+brDia(ds[ds.length-1])):'todo o histórico');
   const tipos=[['end','Endereço divergente'],['nao','Não encontrada'],['sobra','Sem saldo no sistema'],['kg','Peso divergente']].map(([k,l])=>{const x=as.filter(a=>a.tipo===k);return{k,l,n:x.length,kg:x.reduce((s,a)=>s+kgAj(a),0)}});
   const grp=fn=>{const m={};as.forEach(a=>{const k=fn(a);if(!k)return;const x=m[k]||(m[k]={k,n:0,kg:0});x.n++;x.kg+=kgAj(a)});return Object.values(m).sort((a,b)=>b.n-a.n||b.kg-a.kg||a.k.localeCompare(b.k))};
   const baias=agrega(d=>d.baia,fs).map(x=>({k:x.k,n:x.n,div:x.n-x.endOk,pe:pct(x.endOk,x.n),pk:pct(x.ksOk,x.ks),ks:x.ks,kgDiv:x.ks-x.ksOk,sem:x.sem})).sort((a,b)=>a.k.localeCompare(b.k));
-  return {fs,as,t,de,ate,perTxt,uas:t.escopo||0,kgAud,divUa:(t.escopo||0)-(t.endOk||0),divKg:kgAud-(t.kgCerto||0),sem:t.nSobra||0,pe,pk,pg,mt,metas,val,
+  let ant=null;
+  if(!o.so&&!o.semAnt&&de&&ate){const d0=new Date(de+'T12:00:00').getTime(),n=Math.round((new Date(ate+'T12:00:00').getTime()-d0)/864e5)+1,dk=k=>diaKey(new Date(d0-k*864e5).toISOString());
+    ant=dadosAc({per:{de:dk(n),ate:dk(1)},semAnt:true});if(!ant.fs.length)ant=null}
+  return {fs,as,t,de,ate,perTxt,ant,so:o.so||'',uas:t.escopo||0,kgAud,divUa:(t.escopo||0)-(t.endOk||0),divKg:kgAud-(t.kgCerto||0),sem:t.nSobra||0,pe,pk,pg,mt,metas,val,
     naMeta:val[mt]==null?null:val[mt]>=metas[mt],tipos,baias,ends:grp(endDe),prods:grp(prodDe),mots:grp(a=>a.motivo),
     abertas:as.filter(aberto).length,resolvidas:as.filter(a=>!aberto(a)).length,serie:serieDias(fs)};
 }
@@ -902,45 +954,41 @@ function tipOn(r){
 }
 function tipOff(){const c=$('cross'),t=$('tip');if(c)c.setAttribute('visibility','hidden');if(t)t.hidden=true}
 const uasTxt=n=>n+' UA'+(n===1?'':'s');
+let acAberta=null;
 function renderAc(){
   const D=dadosAc(),fs=D.fs,mE=D.metas.ua,mK=D.metas.kg,vazio=`<p class="empty">${ready?'Sem auditorias finalizadas neste período.':'Carregando…'}</p>`;
   document.querySelectorAll('#acPer button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.per===acPer));
   if(acPer!=='datas'){const p=periodo();$('acDe').value=p.de;$('acAte').value=p.ate}
-  $('acPerTxt').textContent=fs.length?D.perTxt+' · '+plural(fs.length,'auditoria','auditorias'):'Nenhuma auditoria finalizada neste período.';
-  const card=(k,tit,p,m)=>`<div class="kpi ${D.mt===k?'on':''}"><span class="t">${tit}${D.mt===k?'<span class="chip ok">Meta em uso</span>':''}</span><b class="${p==null?'':p>=m?'ok':'crit'}">${pctf(p)}</b>
-    <div class="gauge"><i class="${p!=null&&p<m?'low':''}" style="width:${Math.max(0,Math.min(100,p||0))}%"></i><u style="left:${Math.min(100,m)}%" title="Meta"></u></div>
-    <span class="sub">Meta ${nf(m)}% · ${p==null?'sem dados':p>=m?'dentro da meta':'faltam '+nf(Math.round((m-p)*10)/10)+' pontos'}</span></div>`;
-  $('acHero').innerHTML=card('ua','Acuracidade por UA',D.pe,mE)+card('kg','Acuracidade por kg',D.pk,mK)+card('geral','Acuracidade geral',D.pg,D.metas.geral);
-  const sm=sumario(D);$('acSum').hidden=!sm.length;$('acSumTxt').textContent=sm.join(' ');
-  const pr=prioridades(D);$('acPri').innerHTML=pr.length?'<h3>Pontos críticos e prioridades</h3><ol>'+pr.map(x=>`<li>${esc(x)}</li>`).join('')+'</ol>':'';
-  $('acStats').innerHTML=[[D.uas,'UAs auditadas'],[kgf(D.kgAud),'Kg auditados'],[D.divUa,'UAs divergentes'],[kgf(D.divKg),'Kg divergente'],[D.sem,'UAs sem saldo'],[D.abertas,'Divergências em aberto']]
-    .map(s=>`<div class="stat"><b>${fs.length||s[1]==='Divergências em aberto'?s[0]:'—'}</b><span class="t">${s[1]}</span></div>`).join('');
+  const k=(tit,p,m,key)=>`<div class="mini ${D.mt===key?'on':''}"><span class="t">${tit}</span><b class="${p==null?'':p>=m?'ok':'crit'}">${pctf(p)}</b><span class="sub">meta ${nf(m)}%${D.mt===key?' · em uso':''}</span></div>`;
+  const n=(tit,v,sub)=>`<div class="mini"><span class="t">${tit}</span><b>${fs.length?v:'—'}</b><span class="sub">${fs.length?sub:''}</span></div>`;
+  $('acHero').innerHTML=k('Acuracidade por UA',D.pe,mE,'ua')+k('Acuracidade por kg',D.pk,mK,'kg')+k('Acuracidade geral',D.pg,D.metas.geral,'geral')+
+    n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes',D.divUa,kgf(D.divKg)+' kg')+n('UAs sem saldo',D.sem,plural(D.abertas,'pendência em aberto','pendências em aberto'));
+  /* auditorias: a mais recente já abre com o resultado */
+  if(acAberta===null&&fs.length)acAberta=fs[0].id;
+  $('acTit').textContent='Auditorias'+(fs.length?' · '+D.perTxt:'');
+  $('acLista').innerHTML=fs.length?fs.map(c=>{const r=c.resumo,a=pct(r.endOk,r.escopo),kk=accKg(r),ab=acAberta===c.id,nd=r.nEnd+r.nKg+r.nNao+r.nSobra;
+    return `<div class="aud ${ab?'on':''}"><button type="button" class="audH" data-aud="${esc(c.id)}" aria-expanded="${ab}">
+      <span class="audT"><b>${esc(titulo(c))}</b><span class="sub">${dtf(c.fim)} · ${esc(nome(c.operador))}</span></span>
+      <span class="audN"><b class="${a>=mE?'ok':'crit'}">${pctf(a)}</b><span class="sub">por UA</span></span>
+      <span class="audN"><b class="${kk>=mK?'ok':'crit'}">${pctf(kk)}</b><span class="sub">por kg</span></span>
+      <span class="audN"><b>${r.contadas}/${r.esperadas??r.escopo}</b><span class="sub">bipadas / sistema</span></span>
+      <span class="chip ${nd?'crit':'ok'}">${nd?plural(nd,'divergência','divergências'):'Sem divergência'}</span></button>
+      ${ab?`<div class="audB">${auditoria(c,true)}</div>`:''}</div>`}).join('')
+    :`<p class="empty">${ready?'Nenhuma auditoria finalizada neste período. Faça uma na aba Auditar ou escolha outro período.':'Carregando…'}</p>`;
   $('gTipo').innerHTML=hbars(D.tipos.filter(x=>x.n).map(x=>({l:x.l,v:x.n,t:uasTxt(x.n)+(x.kg?' · '+kgf(x.kg)+' kg':''),c:x.k==='end'||x.k==='kg'?'warn':'crit'})),'Nenhuma divergência no período.');
-  renderChart(D.serie);
-  $('gBaia').innerHTML=hbars(D.baias.map(x=>({l:nomeGrupo(x.k),v:x.pe||0,max:100,t:pctf(x.pe),c:x.pe>=mE?'ok':'crit'})));
-  $('gKgBaia').innerHTML=hbars(D.baias.filter(x=>x.div).sort((a,b)=>b.kgDiv-a.kgDiv||b.div-a.div).slice(0,8).map(x=>({l:nomeGrupo(x.k),v:x.kgDiv||0.001,t:kgf(x.kgDiv)+' kg · '+uasTxt(x.div),c:'crit'})),'Nenhum kg divergente no período.');
-  const rk=l=>l.slice(0,8).map(x=>({l:x.k,v:x.n,t:x.n+(x.n>1?' divergências':' divergência')+(x.kg?' · '+kgf(x.kg)+' kg':''),c:x.n>1?'crit':'warn'}));
+  $('gBaia').innerHTML=hbars(D.baias.map(x=>({l:nomeGrupo(x.k),v:x.pe||0,max:100,t:pctf(x.pe)+(x.div?' · '+uasTxt(x.div)+' div. · '+kgf(x.kgDiv)+' kg':''),c:x.pe>=mE?'ok':'crit'})));
+  const rk=l=>l.slice(0,6).map(x=>({l:x.k,v:x.n,t:x.n+(x.n>1?' divergências':' divergência')+(x.kg?' · '+kgf(x.kg)+' kg':''),c:x.n>1?'crit':'warn'}));
   $('rkEnd').innerHTML=hbars(rk(D.ends),'Nenhuma divergência no período.');
   $('rkProd').innerHTML=hbars(rk(D.prods).map(r=>Object.assign(r,{l:r.l+(prodDesc(r.l)?' · '+prodDesc(r.l):'')})),'Nenhuma divergência no período.');
+  /* detalhes (recolhidos) */
+  renderChart(D.serie);
   $('gMot').innerHTML=hbars(D.mots.map(x=>({l:x.k,v:x.n,t:String(x.n)})),'Nenhum motivo informado. Escolha o motivo de cada divergência na aba Ajustes.');
-  const og=orgPorBaia(fs);
-  $('acBaia').innerHTML=D.baias.length?'<table><thead><tr><th>Local</th><th class="num">UAs auditadas</th><th class="num">UAs divergentes</th><th>Por UA</th><th>Por kg</th><th class="num">Kg auditado</th><th class="num">Kg divergente</th><th class="num">Sem saldo</th><th>Organização</th><th></th></tr></thead><tbody>'+
-    D.baias.map(x=>{const o=og[x.k];
-      return `<tr><td><b>${esc(nomeGrupo(x.k))}</b></td><td class="num">${x.n}</td><td class="num">${x.div}</td><td class="nw">${barra(x.pe,mE)}${pctf(x.pe)}</td><td class="nw">${barra(x.pk,mK)}${pctf(x.pk)}</td><td class="num">${kgf(x.ks)}</td><td class="num">${kgf(x.kgDiv)}</td><td class="num">${x.sem}</td>
-      <td class="nw">${o?pctf(pct(o.t-o.p,o.t))+` <span class="sub">${o.p} com problema</span>`:'—'}</td><td>${metaChip(x.pe,mE)}</td></tr>`}).join('')+'</tbody></table>':vazio;
   const ps=agrega(d=>d.prod,fs).sort((a,b)=>(b.n-b.endOk)-(a.n-a.endOk)||a.k.localeCompare(b.k));
   $('acProd').innerHTML=ps.length?'<table><thead><tr><th>Item</th><th class="num">UAs auditadas</th><th class="num">UAs divergentes</th><th>Por UA</th><th class="num">Kg auditado</th><th class="num">Kg divergente</th></tr></thead><tbody>'+
     ps.map(x=>`<tr><td class="nw"><span class="ua">${esc(x.k)}</span> <span class="sub">${esc(prodDesc(x.k))}</span></td><td class="num">${x.n}</td><td class="num">${x.n-x.endOk}</td><td class="nw">${barra(pct(x.endOk,x.n),mE)}${pctf(pct(x.endOk,x.n))}</td><td class="num">${kgf(x.ks)}</td><td class="num">${kgf(x.ks-x.ksOk)}</td></tr>`).join('')+'</tbody></table>':vazio;
   const os=agrega((d,c)=>c.operador||'-',fs);
   $('acOper').innerHTML=os.length?'<table><thead><tr><th>Quem auditou</th><th class="num">Auditorias</th><th class="num">UAs</th><th class="num">UAs divergentes</th></tr></thead><tbody>'+
     os.map(x=>`<tr><td>${esc(x.k==='-'?'Não identificado':nome(x.k))}</td><td class="num">${x.cs.size}</td><td class="num">${x.n}</td><td class="num">${x.n-x.endOk}</td></tr>`).join('')+'</tbody></table>':vazio;
-  if(!fs.length){$('acLista').innerHTML=`<p class="empty">${ready?'Nenhuma auditoria finalizada neste período. Faça uma na aba Auditar ou escolha outro período.':'Carregando…'}</p>`;return}
-  $('acLista').innerHTML='<table><thead><tr><th>Data</th><th>Auditoria</th><th>Quem auditou</th><th class="num">UAs</th><th>Por UA</th><th>Por kg</th><th class="num">Kg auditado</th><th class="num">Kg divergente</th><th>Divergências</th></tr></thead><tbody>'+
-  fs.map(c=>{const r=c.resumo,a=pct(r.endOk,r.escopo),k=accKg(r);
-    return `<tr><td class="nw">${dtf(c.fim)}</td><td>${esc(titulo(c))}</td><td>${esc(nome(c.operador))}</td>
-    <td class="num">${r.contadas}/${r.escopo}</td><td class="nw">${barra(a,mE)}${pctf(a)}</td><td class="nw">${barra(k,mK)}${pctf(k)}</td>
-    <td class="num">${kgf((r.kgEsc||0)+(r.kgFora||0))}</td><td class="num">${kgf((r.kgEsc||0)+(r.kgFora||0)-(r.kgCerto||0))}</td>
-    <td>${divTxt(r)?esc(divTxt(r)):'<span class="chip ok">Sem divergência</span>'}</td></tr>`}).join('')+'</tbody></table>';
 }
 const divTxt=r=>[[r.nEnd,'endereço'],[r.nKg,'peso'],[r.nNao,'não encontrada'],[r.nSobra,'sem saldo']].filter(x=>x[0]).map(x=>x[0]+' '+x[1]).join(', ');
 
@@ -973,11 +1021,24 @@ function gerarPdf(D){
     rows.forEach(r=>{doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...K);doc.text(doc.splitTextToSize(r.l,lw-4)[0],M,y+lh*0.55);
       doc.setFillColor(236,236,234);doc.rect(M+lw,y+lh*0.2,bw,lh*0.55,'F');doc.setFillColor(...(r.cor||cor||G));if(r.v>0)doc.rect(M+lw,y+lh*0.2,Math.max(1,bw*r.v/(r.max||mx)),lh*0.55,'F');
       doc.setFont('helvetica','bold');doc.text(r.t,M+lw+bw+4,y+lh*0.55);y+=lh});y+=6};
+  const empilha=(rot,partes,un)=>{const tot=partes.reduce((s,p)=>s+p.v,0)||1;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...K);doc.text(rot,M,y+4);y+=7;
+    let x=M;partes.forEach(p=>{const w=LW*p.v/tot;if(w<=0)return;doc.setFillColor(...p.cor);doc.rect(x,y,w,11,'F');if(w>16){doc.setFontSize(9);doc.setTextColor(255,255,255);doc.text(pctf(pct(p.v,tot)),x+w/2,y+7,{align:'center'})}x+=w});y+=15;
+    x=M;doc.setFont('helvetica','normal');doc.setFontSize(9);partes.forEach(p=>{const tx=p.l+': '+(un?kgf(p.v)+' kg':p.v);doc.setFillColor(...p.cor);doc.rect(x,y-2.6,3,3,'F');doc.setTextColor(...K);doc.text(tx,x+4.5,y);x+=doc.getTextWidth(tx)+12});y+=10};
+  const pares=rows=>{const lw=70,bw=LW-lw-30,h=5.2;rows.forEach(r=>{doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(...K);doc.text(r.l,M,y+h);
+      [[r.a,G,'Atual'],[r.b,[170,176,182],'Anterior']].forEach(([v,cor,nm],i)=>{const yy=y+i*(h+1.2);doc.setFillColor(236,236,234);doc.rect(M+lw,yy,bw,h,'F');doc.setFillColor(...cor);if(v>0)doc.rect(M+lw,yy,Math.max(1,bw*Math.min(100,v)/100),h,'F');
+        doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...K);doc.text(nm+' '+pctf(v),M+lw+bw+3,yy+h-1.2)});y+=2*h+7});y+=3};
+  const curva=(pts,meta)=>{const x0=M+14,x1=W-M-6,y0=y+4,y1=y+84,vs=pts.flatMap(p=>[p.end,p.kg]).filter(v=>v!=null).concat([meta]),lo=Math.max(0,Math.floor((Math.min(...vs)-5)/10)*10);
+    const X=i=>pts.length===1?(x0+x1)/2:x0+i*(x1-x0)/(pts.length-1),Y=v=>y0+(100-v)*(y1-y0)/(100-lo);doc.setFontSize(8.5);doc.setLineWidth(0.2);
+    for(let v=lo;v<=100;v+=(100-lo)>50?20:10){doc.setDrawColor(215,215,215);doc.line(x0,Y(v),x1,Y(v));doc.setTextColor(...C);doc.text(v+'%',x0-3,Y(v)+1.2,{align:'right'})}
+    doc.setDrawColor(...C);doc.setLineDashPattern([1.5,1.2],0);doc.line(x0,Y(meta),x1,Y(meta));doc.setLineDashPattern([],0);doc.text('Meta '+nf(meta)+'%',x1,Y(meta)-1.5,{align:'right'});
+    const passo=Math.ceil(pts.length/14);pts.forEach((p,i)=>{if(i%passo===0)doc.text(p.dia,X(i),y1+5,{align:'center'})});
+    [['end',[42,120,214]],['kg',O]].forEach(([k,cor])=>{doc.setDrawColor(...cor);doc.setFillColor(...cor);doc.setLineWidth(0.7);let ant=null;pts.forEach((p,i)=>{if(p[k]==null){ant=null;return}if(ant)doc.line(ant[0],ant[1],X(i),Y(p[k]));ant=[X(i),Y(p[k])];doc.circle(ant[0],ant[1],1.1,'F')})});
+    doc.setLineWidth(0.2);y=y1+12;doc.setFontSize(9);doc.setFillColor(42,120,214);doc.rect(x0,y-2.6,3,3,'F');doc.setTextColor(...K);doc.text('Por UA',x0+4.5,y);doc.setFillColor(...O);doc.rect(x0+24,y-2.6,3,3,'F');doc.text('Por kg',x0+28.5,y);y+=8};
   /* capa */
   base();doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(...G);doc.text('ICC BRAZIL',M,72);
   doc.setFontSize(40);doc.setTextColor(...K);doc.text('Auditoria de Armazém',M,92);
   doc.setFontSize(24);doc.setTextColor(88,140,40);doc.text('Acuracidade de estoque',M,106);
-  doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(...C);doc.text('Período: '+D.perTxt+'  ·  gerado em '+new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}),M,120);
+  doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(...C);doc.text((D.so?'Auditoria: ':'Período: ')+D.perTxt+'  ·  gerado em '+new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}),M,120);
   /* sumário */
   pag('Sumário executivo');par(sumario(D).join(' '),12.5);y+=4;
   tiles([[D.uas,'UAs auditadas'],[kgf(D.kgAud),'Kg auditados'],[D.divUa,'UAs divergentes',D.divUa?R:V],[kgf(D.divKg),'Kg divergente',D.divKg?R:V],[D.sem,'UAs sem saldo no sistema',D.sem?R:V],[D.fs.length,'Auditorias realizadas']]);
@@ -988,6 +1049,18 @@ function gerarPdf(D){
   tabela(['Indicador','Resultado','Meta','Diferença','Status'],[['ua','Acuracidade por UA'],['kg','Acuracidade por kg'],['geral','Acuracidade geral (média de UA e kg)']].map(([k,l])=>{const p=D.val[k],m=D.metas[k];
     return [l+(D.mt===k?' - meta em uso':''),pctf(p),nf(m)+'%',p==null?'-':sinal(Math.round((p-m)*10)/10)+' p.p.',st(p,m)]}),corStatus(4));
   tabela(['Indicador','Quantidade'],[['UAs auditadas',D.uas],['Kg auditados',kgf(D.kgAud)+' kg'],['UAs no endereço correto',D.t.endOk||0],['UAs divergentes',D.divUa],['Kg divergente',kgf(D.divKg)+' kg'],['UAs sem saldo no sistema',D.sem]]);
+  /* composição */
+  if(D.uas){pag('Composição do resultado','Como as UAs e o peso auditados se dividem entre o que estava correto e o que divergiu.');const q=k=>(D.tipos.find(x=>x.k===k)||{n:0}).n;
+    empilha('UAs auditadas: '+D.uas,[{l:'No endereço correto',v:D.t.endOk||0,cor:V},{l:'Endereço divergente',v:q('end'),cor:O},{l:'Não encontradas',v:q('nao'),cor:R},{l:'Sem saldo no sistema',v:q('sobra'),cor:[120,40,40]}]);
+    empilha('Kg auditados: '+kgf(D.kgAud),[{l:'No endereço correto',v:D.t.kgCerto||0,cor:V},{l:'Fora do endereço',v:D.t.kgFora||0,cor:O},{l:'Não encontrado',v:D.t.kgFalta||0,cor:R}],true);
+    if(D.as.length)empilha('Tratamento das divergências: '+D.as.length,[{l:'Tratadas',v:D.resolvidas,cor:V},{l:'Em aberto',v:D.abertas,cor:A}])}
+  /* comparação com o período anterior */
+  if(D.ant){const B=D.ant,dv=(a,b,p)=>a==null||b==null?'-':sinal(Math.round((a-b)*10)/10)+(p?' p.p.':'');
+    pag('Comparação com o período anterior','Período atual: '+D.perTxt+'. Período anterior: '+B.perTxt+'.');
+    pares([{l:'Acuracidade por UA',a:D.pe,b:B.pe},{l:'Acuracidade por kg',a:D.pk,b:B.pk},{l:'Acuracidade geral',a:D.pg,b:B.pg}]);
+    tabela(['Indicador','Atual','Anterior','Variação'],[['Auditorias',D.fs.length,B.fs.length,dv(D.fs.length,B.fs.length)],['UAs auditadas',D.uas,B.uas,dv(D.uas,B.uas)],['Kg auditados',kgf(D.kgAud),kgf(B.kgAud),dv(D.kgAud,B.kgAud)],
+      ['UAs divergentes',D.divUa,B.divUa,dv(D.divUa,B.divUa)],['Kg divergente',kgf(D.divKg),kgf(B.divKg),dv(D.divKg,B.divKg)],['UAs sem saldo',D.sem,B.sem,dv(D.sem,B.sem)],
+      ['Acuracidade por UA',pctf(D.pe),pctf(B.pe),dv(D.pe,B.pe,1)],['Acuracidade por kg',pctf(D.pk),pctf(B.pk),dv(D.pk,B.pk,1)],['Acuracidade geral',pctf(D.pg),pctf(B.pg),dv(D.pg,B.pg,1)]])}
   /* divergências por tipo */
   const tp=D.tipos.filter(x=>x.n);
   if(tp.length){pag('Divergências por tipo');barras(tp.map(x=>({l:x.l,v:x.n,t:uasTxt(x.n),cor:x.k==='end'||x.k==='kg'?O:R})));
@@ -1003,8 +1076,9 @@ function gerarPdf(D){
       D.baias.map(x=>[nomeGrupo(x.k),x.n,x.div,pctf(x.pe),pctf(x.pk),kgf(x.ks),kgf(x.kgDiv),x.sem,st(x.pe,D.metas.ua)]),corStatus(8))}
   /* maiores divergências */
   if(D.as.length){pag('Maiores divergências','Endereços e itens que mais apareceram com divergência no período.');
+    barras(D.ends.slice(0,6).map(x=>({l:x.k,v:x.n,t:x.n+' div.  '+kgf(x.kg)+' kg'})),R);
     tabela(['Endereço','Divergências','Kg','Participação'],D.ends.slice(0,8).map(x=>[x.k,x.n,kgf(x.kg),pctf(pct(x.n,D.as.length))]));
-    if(y>H-60){pag('Maiores divergências por item')}
+    pag('Maiores divergências por item');barras(D.prods.slice(0,6).map(x=>({l:x.k+' '+prodDesc(x.k),v:x.n,t:x.n+' div.  '+kgf(x.kg)+' kg'})),O);
     tabela(['Item','Descrição','Divergências','Kg','Participação'],D.prods.slice(0,8).map(x=>[x.k,prodDesc(x.k),x.n,kgf(x.kg),pctf(pct(x.n,D.as.length))]))}
   const by=t=>D.as.filter(a=>a.tipo===t);
   if(by('end').length){pag('UAs com endereço divergente','UAs encontradas em um endereço diferente do que está no sistema.');
@@ -1016,9 +1090,11 @@ function gerarPdf(D){
   if(by('kg').length){pag('UAs com peso divergente');
     tabela(['UA','Item','Kg no sistema','Kg físico','Diferença','Situação'],by('kg').map(a=>[a.ua,descAj(a),kgf(a.sist),kgf(a.fis),sinal(a.fis-a.sist),sitAj(a)]),corStatus(5))}
   if(D.mots.length){pag('Causas das divergências','Motivos informados na aba Ajustes.');barras(D.mots.map(x=>({l:x.k,v:x.n,t:String(x.n)})),O)}
-  if(D.serie.length>1){pag('Evolução da acuracidade por dia');
+  if(D.serie.length>1){pag('Evolução da acuracidade por dia');curva(D.serie,D.metas[D.mt]==null?98:D.metas[D.mt]);pag('Evolução da acuracidade por dia - números');
     tabela(['Dia','Auditorias','UAs auditadas','Kg auditados','Acuracidade por UA','Acuracidade por kg'],D.serie.map(p=>[brDia(p.k),p.n,p.uas,kgf(p.kgAud),pctf(p.end),pctf(p.kg)]))}
-  pag('Auditorias realizadas');
+  if(D.fs.length>1){pag('Acuracidade por auditoria','Acuracidade por UA de cada auditoria do período, da mais recente para a mais antiga.');
+    barras(D.fs.slice(0,12).map(c=>{const p=pct(c.resumo.endOk,c.resumo.escopo);return{l:titulo(c)+' '+diaf(c.fim),v:p||0,max:100,t:pctf(p)+'  ('+uasTxt(c.resumo.escopo)+')',cor:p>=D.metas.ua?V:R}}))}
+  pag(D.so?'Resumo da auditoria':'Auditorias realizadas');
   tabela(['Data','Auditoria','Quem auditou','UAs bipadas','UAs no sistema','Por UA','Por kg','Divergências'],D.fs.map(c=>{const r=c.resumo;return[dtf(c.fim),titulo(c),nome(c.operador),r.contadas,r.esperadas??r.escopo,pctf(pct(r.endOk,r.escopo)),pctf(accKg(r)),divTxt(r)||'Sem divergência']}));
   /* fechamento */
   pag('Pontos críticos e conclusão');
@@ -1027,16 +1103,18 @@ function gerarPdf(D){
   y+=3;par('Observações e premissas',12,G,true);
   par('Relatório gerado automaticamente a partir das auditorias registradas no app de Auditoria de Armazém, comparadas com o saldo do Zion WMS. Acuracidade por UA = UAs no endereço certo ÷ UAs auditadas. Acuracidade por kg = kg no endereço certo ÷ kg auditado. Acuracidade geral = média das duas. Os pontos críticos são sugestões automáticas e devem ser revisados pelo analista.',9,C);
   const n=doc.getNumberOfPages();for(let i=2;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...C);doc.text(i+' / '+n,W-M,H-8,{align:'right'})}
-  const nomeArq='auditoria-armazem-'+(D.de&&D.de===D.ate?D.de:diaKey(iso()))+'.pdf';
+  const nomeArq='auditoria-armazem-'+(D.so?limpa(titulo(D.fs[0])).toLowerCase()+'-'+diaKey(D.fs[0].fim):D.de&&D.de===D.ate?D.de:diaKey(iso()))+'.pdf';
   return {blob:doc.output('blob'),nome:nomeArq};
 }
 function textoEmail(D){
   return ['Auditoria de armazém - acuracidade de estoque','Período: '+D.perTxt,'',sumario(D).join(' '),'',
     'UAs auditadas: '+D.uas,'Kg auditados: '+kgf(D.kgAud),'UAs divergentes: '+D.divUa,'Kg divergente: '+kgf(D.divKg),'UAs sem saldo no sistema: '+D.sem,
-    'Acuracidade por UA: '+pctf(D.pe),'Acuracidade por kg: '+pctf(D.pk),'Acuracidade geral: '+pctf(D.pg),'','O relatório completo segue no PDF.'].join('\n');
+    'Acuracidade por UA: '+pctf(D.pe),'Acuracidade por kg: '+pctf(D.pk),'Acuracidade geral: '+pctf(D.pg),
+    ...(D.ant?['','Comparação com '+D.ant.perTxt+':','Acuracidade por UA: '+pctf(D.pe)+' (antes '+pctf(D.ant.pe)+')','Acuracidade por kg: '+pctf(D.pk)+' (antes '+pctf(D.ant.pk)+')','UAs divergentes: '+D.divUa+' (antes '+D.ant.divUa+')','Kg divergente: '+kgf(D.divKg)+' (antes '+kgf(D.ant.divKg)+')']:[]),
+    '','O relatório completo segue no PDF.'].join('\n');
 }
-function prontoParaRelatorio(){
-  const D=dadosAc();
+function prontoParaRelatorio(so){
+  const D=so&&typeof so==='object'?so:dadosAc(so?{so}:null);
   if(!D.fs.length){toast('Não há auditoria finalizada neste período.');return null}
   return D;
 }
@@ -1044,17 +1122,17 @@ async function salvaPdf(p){
   if(dl) return dl.save({filename:p.nome,data:p.blob});
   const a=document.createElement('a');a.href=URL.createObjectURL(p.blob);a.download=p.nome;document.body.appendChild(a);a.click();a.remove();
 }
-async function baixarPdf(){
-  const D=prontoParaRelatorio();if(!D)return;
+async function baixarPdf(so){
+  const D=prontoParaRelatorio(so&&!so.target?so:'');if(!D)return;
   try{await salvaPdf(gerarPdf(D));toast('Relatório em PDF salvo.')}catch(e){if(!e||e.code!=='declined')toast((e&&e.message)||'Não foi possível gerar o PDF.')}
 }
 const b64=blob=>new Promise((ok,er)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=er;r.readAsDataURL(blob)});
-async function enviarEmail(){
-  const D=prontoParaRelatorio();if(!D)return;
+async function enviarEmail(x){
+  const D=prontoParaRelatorio(x&&!x.target?x:'');if(!D)return;
   const para=String(cfg.emails||'').split(/[;,\s]+/).filter(x=>x.includes('@'));
   const assunto='Auditoria de armazém - acuracidade '+D.perTxt,texto=textoEmail(D);
   let p;try{p=gerarPdf(D)}catch(e){toast(e.message||'Não foi possível gerar o PDF.');return}
-  const b=$('btnMail');b.disabled=true;
+  const b=$(x&&!x.target?'btnCpMail':'btnMail');b.disabled=true;
   try{
     if(window.__enviarEmail){
       if(!para.length){toast('Informe os e-mails que recebem o relatório, em Metas e e-mail.');return}
@@ -1069,6 +1147,35 @@ async function enviarEmail(){
   finally{b.disabled=false}
 }
 
+
+/* ---------- comparar períodos ---------- */
+let cpPer='semana';
+function periodosCp(){
+  const dk=d=>diaKey(d.toISOString()),h=new Date();h.setHours(12,0,0,0);const dia=n=>new Date(h.getTime()+n*864e5);
+  if(cpPer==='semana'){const s=(h.getDay()+6)%7;return{a:{de:dk(dia(-s)),ate:dk(h)},b:{de:dk(dia(-s-7)),ate:dk(dia(-s-1))},na:'Esta semana',nb:'Semana passada'}}
+  if(cpPer==='mes'){const i=new Date(h.getFullYear(),h.getMonth(),1,12),pi=new Date(h.getFullYear(),h.getMonth()-1,1,12),pf=new Date(h.getFullYear(),h.getMonth(),0,12);
+    return{a:{de:dk(i),ate:dk(h)},b:{de:dk(pi),ate:dk(pf)},na:'Este mês',nb:'Mês passado'}}
+  return{a:{de:$('cpA1').value,ate:$('cpA2').value},b:{de:$('cpB1').value,ate:$('cpB2').value},na:'Período A',nb:'Período B'};
+}
+function dadosCp(){const P=periodosCp(),A=dadosAc({per:P.a,semAnt:true}),B=dadosAc({per:P.b,semAnt:true});A.ant=B;return{P,A,B}}
+function renderCp(){
+  document.querySelectorAll('#cpPer button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.cp===cpPer));
+  const {P,A,B}=dadosCp();
+  if(cpPer!=='datas'){$('cpA1').value=P.a.de;$('cpA2').value=P.a.ate;$('cpB1').value=P.b.de;$('cpB2').value=P.b.ate}
+  const falta=cpPer==='datas'&&!(P.a.de&&P.a.ate&&P.b.de&&P.b.ate);
+  if(falta||(!A.fs.length&&!B.fs.length)){$('cpCards').innerHTML='';$('cpBaia').innerHTML='';$('cpTab').innerHTML=`<p class="empty">${!ready?'Carregando…':falta?'Escolha as datas dos dois períodos.':'Não há auditoria finalizada em nenhum dos dois períodos.'}</p>`;return}
+  const var_=(a,b,bom,p)=>{if(a==null||b==null)return'';const d=Math.round((a-b)*10)/10;if(!d)return'<span class="chip off">igual</span>';return`<span class="chip ${(d>0)===(bom>0)?'ok':'crit'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${p?' p.p.':''}</span>`};
+  const card=(tit,a,b,m)=>`<div class="mini"><span class="t">${tit}</span><b class="${a==null?'':a>=m?'ok':'crit'}">${pctf(a)}</b><span class="sub">antes ${pctf(b)} ${var_(a,b,1,1)}</span></div>`;
+  $('cpCards').innerHTML=card('Acuracidade por UA',A.pe,B.pe,A.metas.ua)+card('Acuracidade por kg',A.pk,B.pk,A.metas.kg)+card('Acuracidade geral',A.pg,B.pg,A.metas.geral);
+  const L=[['Auditorias',A.fs.length,B.fs.length,1],['UAs auditadas',A.uas,B.uas,1],['Kg auditados',A.kgAud,B.kgAud,1,1],['UAs divergentes',A.divUa,B.divUa,-1],['Kg divergente',A.divKg,B.divKg,-1,1],['UAs sem saldo',A.sem,B.sem,-1],['Divergências em aberto',A.abertas,B.abertas,-1]];
+  $('cpTab').innerHTML=`<table><thead><tr><th>Indicador</th><th class="num">${esc(P.na)}<br><span class="sub">${esc(A.perTxt)}</span></th><th class="num">${esc(P.nb)}<br><span class="sub">${esc(B.perTxt)}</span></th><th>Variação</th></tr></thead><tbody>`+
+    L.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[4]?kgf(r[1]):r[1]}</td><td class="num">${r[4]?kgf(r[2]):r[2]}</td><td>${var_(r[1],r[2],r[3])}</td></tr>`).join('')+'</tbody></table>';
+  const mb={};A.baias.forEach(x=>{(mb[x.k]=mb[x.k]||{k:x.k}).a=x});B.baias.forEach(x=>{(mb[x.k]=mb[x.k]||{k:x.k}).b=x});
+  const bs=Object.values(mb).sort((x,y)=>x.k.localeCompare(y.k));
+  $('cpBaia').innerHTML=bs.length?`<table><thead><tr><th>Local</th><th class="num">${esc(P.na)}</th><th class="num">${esc(P.nb)}</th><th>Variação</th><th class="num">UAs div. agora</th><th class="num">UAs div. antes</th></tr></thead><tbody>`+
+    bs.map(x=>`<tr><td><b>${esc(nomeGrupo(x.k))}</b></td><td class="num">${pctf(x.a?x.a.pe:null)}</td><td class="num">${pctf(x.b?x.b.pe:null)}</td><td>${var_(x.a?x.a.pe:null,x.b?x.b.pe:null,1,1)}</td><td class="num">${x.a?x.a.div:'—'}</td><td class="num">${x.b?x.b.div:'—'}</td></tr>`).join('')+'</tbody></table>':'';
+}
+function relCp(){const {A}=dadosCp();if(!A.fs.length){toast('Não há auditoria finalizada no período atual da comparação.');return null}if(!A.ant.fs.length)A.ant=null;return A}
 /* ---------- armazém ---------- */
 function ultimas(){const m={};finalizadas().forEach(c=>Object.entries(c.itens||{}).forEach(([ua,i])=>{if(!m[ua]||i.hora>m[ua])m[ua]=i.hora}));return m}
 const dias=s=>Math.max(0,Math.floor((Date.now()-new Date(s).getTime())/864e5));
@@ -1107,10 +1214,10 @@ async function exportar(){
 }
 
 /* ---------- interface ---------- */
-function renderTudo(){renderNova();renderCont();renderRec();renderPlano();renderAj();renderCfg();renderAc();renderAz()}
+function renderTudo(){renderCp();renderNova();renderCont();renderRec();renderPlano();renderAj();renderCfg();renderAc();renderAz()}
 let tt;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,3500)}
-const TABS=['contar','ajustes','acuracidade','armazem'];
-const TIT={contar:['Auditar','Auditoria e recontagem no coletor'],ajustes:['Ajustes','Movimentação e UAs sem saldo'],acuracidade:['Acuracidade','Resultado das auditorias, metas e relatório'],armazem:['Armazém','Ligação com o WMS, ocupação e dias sem auditoria']};
+const TABS=['contar','ajustes','acuracidade','comparar','armazem'];
+const TIT={contar:['Auditar','Auditoria e recontagem no coletor'],ajustes:['Ajustes','Movimentação e UAs sem saldo'],acuracidade:['Acuracidade','Resultado das auditorias, metas e relatório'],comparar:['Comparar','Um período contra outro'],armazem:['Armazém','Ligação com o WMS, ocupação e dias sem auditoria']};
 function abre(tab){
   if(!TABS.includes(tab)) tab='contar';
   TABS.forEach(t=>{$('tab-'+t).hidden=t!==tab});
@@ -1127,7 +1234,10 @@ document.addEventListener('click',ev=>{
   else if(d.per){acPer=d.per;try{localStorage.setItem('inv-per',acPer)}catch(e){}renderAc()}
   else if(d.mt){cfg.metaTipo=d.mt;grava('config','geral',cfg);renderCfg();renderAc()}
   else if(d.busca){buscaLote(d.busca)}
-  else if(d.reldia){acPer='hoje';abre('acuracidade');renderAc()}
+  else if(d.reldia){acPer='hoje';acAberta=null;abre('acuracidade');renderAc()}
+  else if(d.cp){cpPer=d.cp;renderCp()}
+  else if(d.aud){acAberta=acAberta===d.aud?'':d.aud;renderAc()}
+  else if(d.pdfaud){baixarPdf(d.pdfaud)}
   else if(d.por){por=d.por;renderNova()}
   else if(d.f){ajF=d.f;renderAj()}
   else if(d.rm&&cur){delete cur.itens[d.rm];putContagem(cur);renderCont()}
@@ -1189,6 +1299,8 @@ $('btnCfg').onclick=()=>{const a=numIn($('cfMetaEnd').value),b=numIn($('cfMetaKg
   if([a,b,g,c].some(v=>v===null||isNaN(v)||v>100)){toast('Use números de 0 a 100.');return}
   cfg=Object.assign({},cfg,{metaEnd:a,metaKg:b,metaGeral:g,tol:c,emails:$('cfEmails').value.trim()});grava('config','geral',cfg);renderAc();toast('Salvo. A tolerância vale para as próximas auditorias.')};
 $('btnPdf').onclick=baixarPdf;$('btnMail').onclick=enviarEmail;
+$('btnCpPdf').onclick=()=>{const D=relCp();if(D)baixarPdf(D)};$('btnCpMail').onclick=()=>{const D=relCp();if(D)enviarEmail(D)};
+document.addEventListener('change',ev=>{const t=ev.target;if(t&&/^cp[AB][12]$/.test(t.id||'')){cpPer='datas';renderCp()}});
 $('btnXls').onclick=exportar;
 $('posBusca').addEventListener('input',renderAz);
 let ini=(location.hash||'').slice(1);try{ini=ini||localStorage.getItem('inv-tab')||''}catch(e){}
