@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Inventário de Armazém</title><style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<script>
+/* Versao GitHub: sem servidor. Os dados ficam no navegador deste aparelho e o saldo vem direto da API do WMS. */
+(function(){
+  const LS='inv-dados-v1';let cols={};try{cols=JSON.parse(localStorage.getItem(LS)||'{}')||{}}catch(e){}
+  const subs={};
+  const grava=()=>{try{localStorage.setItem(LS,JSON.stringify(cols))}catch(e){throw {code:'quota_exceeded'}}};
+  const fire=c=>{const d=cols[c]||{};const snap={docs:Object.keys(d).sort().map(id=>({id,data:()=>d[id]}))};(subs[c]||[]).forEach(f=>{try{f(snap)}catch(e){console.error(e)}})};
+  const db={collection:c=>({onSnapshot(f){(subs[c]=subs[c]||[]).push(f);setTimeout(()=>fire(c),0);return()=>{}},
+    doc:id=>({set:async o=>{(cols[c]=cols[c]||{})[id]=o;grava()},delete:async()=>{if(cols[c])delete cols[c][id];grava()}})})};
+  const nomeOp=()=>{try{return localStorage.getItem('inv-operador')||''}catch(e){return ''}};
+  const user={id:async()=>nomeOp()||null,profiles:async ids=>Object.fromEntries([].concat(ids).map(i=>[i,{id:i,name:i}]))};
+  const downloads={save:async({filename,data})=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data]));a.download=filename;document.body.appendChild(a);a.click();a.remove();return{status:'saved'}}};
+  window.claude={use:async n=>({db,user,downloads})[n]||null};
+  window.__inv={cols,grava,fire};
+})();
+</script>
+<title>Inventário de Armazém</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: casca de aplicativo. Computador: menu lateral escuro + área de trabalho. Coletor: cabeçalho compacto + barra inferior de ícones. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --sunk:#e9edf1; --line:#d6dce3;
+  --fg:#141c24; --muted:#5a6876;
+  --accent:#0b62a3; --on-accent:#ffffff; --accent-soft:#e3f0fa;
+  --label:#f6c21c; --on-label:#1a1a12;
+  --ok:#17764a; --ok-bg:#dff3e7; --warn:#855600; --warn-bg:#fdefc8; --crit:#b3261e; --crit-bg:#fbe1de;
+  --s1:#2a78d6; --s2:#eb6834;
+  --side:#141c24; --side-fg:#f1f4f7; --side-muted:#93a1af; --side-line:#26323e;
+  --shadow:0 1px 2px rgba(20,28,36,.06),0 6px 18px rgba(20,28,36,.05);
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1319; --surface:#171e26; --sunk:#202a34; --line:#2c3844;
+  --fg:#e8edf2; --muted:#98a6b4;
+  --accent:#62b4ea; --on-accent:#06202f; --accent-soft:#16303f;
+  --label:#e9b70f; --on-label:#1a1a12;
+  --ok:#6fd39c; --ok-bg:#173526; --warn:#f0c765; --warn-bg:#3a2e10; --crit:#ff9a92; --crit-bg:#45201d;
+  --s1:#3987e5; --s2:#d95926;
+  --side:#0a0e13; --side-fg:#f1f4f7; --side-muted:#8795a3; --side-line:#1c2530;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+  color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e1319; --surface:#171e26; --sunk:#202a34; --line:#2c3844;
+  --fg:#e8edf2; --muted:#98a6b4;
+  --accent:#62b4ea; --on-accent:#06202f; --accent-soft:#16303f;
+  --label:#e9b70f; --on-label:#1a1a12;
+  --ok:#6fd39c; --ok-bg:#173526; --warn:#f0c765; --warn-bg:#3a2e10; --crit:#ff9a92; --crit-bg:#45201d;
+  --s1:#3987e5; --s2:#d95926;
+  --side:#0a0e13; --side-fg:#f1f4f7; --side-muted:#8795a3; --side-line:#1c2530;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+p{margin:0}
+
+/* ---- casca ---- */
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100dvh}
+.side{background:var(--side);color:var(--side-fg);display:flex;flex-direction:column;gap:18px;padding:20px 12px;position:sticky;top:0;height:100dvh;align-self:start}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 16px;border-bottom:4px solid transparent;border-image:repeating-linear-gradient(-45deg,var(--label) 0 8px,var(--side) 8px 16px) 4}
+.brand svg{width:34px;height:34px;color:var(--label);flex:none}
+.brand b{display:block;font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.03em}
+.brand span{font-size:12px;color:var(--side-muted)}
+.tabs{display:flex;flex-direction:column;gap:2px}
+.tabs button{position:relative;display:flex;align-items:center;gap:12px;font:500 15px var(--body);color:var(--side-muted);background:none;border:0;border-left:3px solid transparent;padding:11px 12px;cursor:pointer;border-radius:0 8px 8px 0;text-align:left}
+.tabs button svg{width:22px;height:22px;flex:none}
+.tabs button:hover{color:var(--side-fg)}
+.tabs button[aria-selected="true"]{color:var(--side-fg);background:var(--side-line);border-left-color:var(--label);font-weight:600}
+.tabs .lb{flex:1}
+.badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--label);color:var(--on-label);font:600 12px/20px var(--mono);text-align:center}
+.who{margin-top:auto;padding:0 12px;font-size:12px;color:var(--side-muted)}
+.wrap{padding-inline:28px;padding-block:22px 48px;display:flex;flex-direction:column;gap:18px;max-width:1240px;width:100%}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 16px}
+.top > div{flex:1 1 240px;min-width:0}
+h1{font:700 36px/1 var(--display);letter-spacing:.01em;margin:0;text-transform:uppercase}
+h2{font:600 19px/1.15 var(--display);margin:0;text-transform:uppercase;letter-spacing:.04em;text-wrap:balance}
+h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0}
+.sub{color:var(--muted);font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--warn);background:var(--warn-bg);padding:5px 12px;border-radius:999px}
+.pill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--label)}
+
+@media (max-width:860px){
+  .app{display:block}
+  .side{position:static;height:auto;flex-direction:row;align-items:center;padding:10px 16px;gap:10px}
+  .brand{padding:0;border:0;flex:1}
+  .brand svg{width:26px;height:26px}
+  .brand b{font-size:19px}
+  .brand span{display:none}
+  .who{margin:0;padding:0;text-align:right}
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:4;flex-direction:row;gap:0;background:var(--side);border-top:1px solid var(--side-line);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .tabs button{flex:1 1 0;flex-direction:column;gap:3px;font-size:11px;padding:9px 2px 8px;border-left:0;border-top:3px solid transparent;border-radius:0;text-align:center;min-width:0}
+  .tabs button[aria-selected="true"]{border-top-color:var(--label);background:none}
+  .tabs .lb{flex:none}
+  .tabs .badge{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;font-size:11px;line-height:18px;padding:0 5px}
+  .wrap{padding-inline:16px;padding-block:16px 96px}
+  h1{font-size:30px}
+}
+
+/* ---- blocos ---- */
+section{display:flex;flex-direction:column;gap:18px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:14px}
+.panel.row{flex-direction:row;align-items:flex-end}
+.narrow{max-width:540px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.cols > *{min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.row > *{min-width:0}
+.grow{flex:1 1 160px}
+.stack{display:flex;flex-direction:column;gap:12px}
+label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:flex;flex-direction:column;gap:5px}
+label.check{flex-direction:row;align-items:center;gap:10px;text-transform:none;letter-spacing:0;font-size:15px;font-weight:500;color:var(--fg)}
+input[type=text],input[type=password],select{font:500 19px var(--mono);padding:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);width:100%;border-radius:8px;min-height:50px}
+input[type=text]:focus,input[type=password]:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+input[type=text]::placeholder{color:var(--muted);opacity:.6}
+select.sm,input.sm{font:500 13px var(--body);padding:6px 8px;min-height:34px;width:auto;max-width:190px;border-radius:6px}
+input.num{width:92px;font-size:16px;padding:8px 10px;min-height:40px}
+input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);flex:none}
+button.btn{font:600 15px var(--body);padding:0 18px;min-height:48px;border:1.5px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;border-radius:8px}
+button.btn:hover{filter:brightness(1.08)}
+button.btn.ghost{background:transparent;color:var(--accent)}
+button.btn.ghost:hover{background:var(--accent-soft);filter:none}
+button.btn.danger{border-color:var(--crit);background:transparent;color:var(--crit)}
+button.btn.small{padding:0 12px;min-height:34px;font-size:13px;border-radius:6px}
+button.btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
+:focus-visible{outline:3px solid var(--label);outline-offset:2px}
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--sunk);padding:4px;border-radius:10px}
+.seg button{font:600 14px var(--body);padding:10px 12px;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:7px;flex:1 1 auto}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:var(--shadow)}
+.seg.sm{background:none;padding:0;gap:6px}
+.seg.sm button{font-size:13px;padding:7px 11px;flex:0 1 auto;border:1.5px solid var(--line);border-radius:999px;color:var(--fg)}
+.seg.sm button[aria-pressed="true"]{background:var(--crit-bg);color:var(--crit);border-color:var(--crit);box-shadow:none}
+/* etiqueta de endereço, como a placa amarela da estrutura porta-palete */
+.addr{display:inline-block;font:600 13px var(--mono);background:var(--label);color:var(--on-label);padding:3px 8px;border-radius:4px;white-space:nowrap;box-shadow:inset 4px 0 0 var(--on-label)}
+.addr.none{background:var(--sunk);color:var(--muted);box-shadow:none}
+.ua{font:600 14px var(--mono)}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.warn{background:var(--warn-bg);color:var(--warn)} .chip.crit{background:var(--crit-bg);color:var(--crit)} .chip.off{background:var(--sunk);color:var(--muted)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;padding:9px 12px;background:var(--sunk);white-space:nowrap}
+th:first-child{border-radius:6px 0 0 6px} th:last-child{border-radius:0 6px 6px 0}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--accent-soft)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td.num{font-family:var(--mono)}
+td.nw{white-space:nowrap}
+.empty{color:var(--muted);padding:14px 2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.stat span.t{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.stat b{font:700 40px/1 var(--display);font-variant-numeric:tabular-nums}
+.bar{display:inline-block;vertical-align:middle;width:70px;height:8px;background:var(--sunk);margin-right:8px;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok);border-radius:4px} .bar i.mid{background:var(--label)} .bar i.low{background:var(--crit)}
+.bar.wide{width:100%;max-width:260px;margin:0}
+.bar.full{max-width:none;height:10px;display:block}
+.bar.full i{background:var(--accent)}
+#resBox .stats{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.notice{background:var(--crit-bg);color:var(--crit);padding:10px 14px;border-radius:8px;font-size:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.notice.warn{background:var(--warn-bg);color:var(--warn)}
+.progress{font:700 30px/1 var(--display);font-variant-numeric:tabular-nums}
+.items{display:flex;flex-direction:column}
+.items > div{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.items > div:last-child{border-bottom:0}
+.items .sp{flex:1}
+/* mapa de cobertura: uma célula por endereço */
+.mapa{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.cel{font:600 12px var(--mono);padding:10px 6px;border:1.5px solid var(--line);background:var(--sunk);color:var(--muted);border-radius:6px;white-space:nowrap;text-align:center}
+.cel.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.cel.parc{background:var(--surface);color:var(--fg);border-style:dashed}
+.cel.rec{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+.cel.div{background:var(--crit-bg);color:var(--crit);border-color:var(--crit)}
+.legend .cel{padding:3px 8px;margin-right:6px}
+.baiaCard{display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--muted);align-items:center}
+.sw{display:inline-block;width:16px;height:3px;vertical-align:middle;margin-right:6px;border-radius:2px}
+.chart{position:relative}
+.chart svg{display:block;width:100%;min-width:480px;height:auto}
+.chart text{font:500 11px var(--body);fill:var(--muted)}
+.chart text.val{font:600 12px var(--mono);fill:var(--fg)}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .meta{stroke:var(--muted);stroke-width:1.5;stroke-dasharray:5 4}
+.chart .hit{fill:transparent;outline:none}
+.chart .cross{stroke:var(--muted);stroke-width:1}
+#tip{position:absolute;top:8px;background:var(--fg);color:var(--bg);padding:6px 10px;font-size:12px;border-radius:6px;pointer-events:none;white-space:nowrap;transform:translateX(-50%)}
+#toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:11px 18px;font-weight:600;max-width:90vw;border-radius:8px;z-index:5;box-shadow:var(--shadow)}
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5 3.5 7v10l8.5 4.5 8.5-4.5V7z"></path><path d="M3.5 7 12 11.5 20.5 7M12 11.5v10"></path></svg>
+      <div><b>Inventário</b><span>Armazém</span></div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="contar" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5h3M20 8V5h-3M4 16v3h3M20 16v3h-3M8 9v6M11 9v6M14 9v6M16.5 9v6"></path></svg><span class="lb">Contar</span><span class="badge" id="nRec" hidden>0</span></button>
+      <button role="tab" data-tab="plano" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7"></rect><rect x="13" y="4" width="7" height="7"></rect><rect x="4" y="13" width="7" height="7"></rect><rect x="13" y="13" width="7" height="7"></rect></svg><span class="lb">Plano</span></button>
+      <button role="tab" data-tab="ajustes" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h14M15 5l3 3-3 3M20 16H6M9 13l-3 3 3 3"></path></svg><span class="lb">Ajustes</span><span class="badge" id="nPend" hidden>0</span></button>
+      <button role="tab" data-tab="acuracidade" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="4.5"></circle><circle cx="12" cy="12" r="1" fill="currentColor"></circle></svg><span class="lb">Acuracidade</span></button>
+      <button role="tab" data-tab="armazem" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 20V9l9-5 9 5v11"></path><path d="M7 20v-7h10v7M7 16.5h10"></path></svg><span class="lb">Armazém</span></button>
+    </nav>
+    <div class="who" id="quem"></div>
+  </aside>
+  <main class="wrap">
+  <header class="top">
+    <div><h1 id="pgTit">Contar</h1><p class="sub" id="pgSub">Contagem e recontagem no coletor</p></div>
+    <span class="pill" title="O saldo vem do WMS. Contagens e ajustes ficam só neste aparelho e não são gravados no WMS.">Consulta ao WMS · dados guardados neste aparelho</span>
+  </header>
+  <div class="notice" id="semDados" hidden><span id="semDadosTxt" class="grow"></span><button class="btn ghost small" type="button" id="btnPerm" hidden>Abrir permissões</button></div>
+
+  <!-- CONTAR (coletor) -->
+  <section id="tab-contar">
+    <div class="panel" id="resBox" hidden style="max-width:880px"></div>
+
+    <div class="panel narrow" id="novaBox">
+      <h2>Nova contagem</h2>
+      <div class="seg" id="tipoSeg">
+        <button type="button" data-por="endereco" aria-pressed="true">Endereçamento</button>
+        <button type="button" data-por="baia" aria-pressed="false">Cíclico por baia ou porta-palete</button>
+        <button type="button" data-por="lote" aria-pressed="false">Cíclico por lote</button>
+      </div>
+      <p class="sub" id="tipoDesc">Bipe um endereço e as UAs que estão nele. O app confere se cada UA está onde o sistema diz.</p>
+      <label id="valorLbl" hidden><span id="valorTxt">Baia</span><select id="valorSel"></select></label>
+      <label id="novoEndLbl">Informe o endereço<input type="text" id="novoEnd" placeholder="M04A01" autocapitalize="characters"></label>
+      <button class="btn" id="btnIniciar" type="button">Iniciar</button>
+    </div>
+
+    <div class="panel narrow" id="contBox" hidden>
+      <div class="row"><h2 id="contTit" class="grow"></h2><span class="progress" id="contProg"></span></div>
+      <div class="bar full" id="contBar" hidden><i></i></div>
+      <form id="bipForm" autocomplete="off" class="stack">
+        <label id="endLbl">Endereço<input type="text" id="inEnd" placeholder="M04A01" autocapitalize="characters"></label>
+        <div class="stack" id="orgBox" hidden>
+          <h3>Organização deste endereço</h3>
+          <div class="seg sm" id="orgChips"></div>
+          <button class="btn ghost small" type="button" id="btnVazio" style="align-self:flex-start">Endereço vazio</button>
+        </div>
+        <label>UA<input type="text" id="inUa" placeholder="Bipe a UA" autocapitalize="characters" inputmode="none"></label>
+        <button class="btn ghost small" type="button" id="btnTec" style="align-self:flex-start">Digitar a UA no teclado</button>
+        <label class="check"><input type="checkbox" id="confKg">Conferir peso</label>
+        <label id="kgLbl" hidden>Peso físico (kg)<input type="text" id="inKg" inputmode="decimal" placeholder="0,0"></label>
+        <button class="btn" type="submit">Registrar UA</button>
+      </form>
+      <p class="sub" id="fonteAviso"></p>
+      <div class="items" id="contItens"></div>
+      <div class="row">
+        <button class="btn" type="button" id="btnFim">Finalizar contagem</button>
+        <button class="btn danger" type="button" id="btnCancela">Cancelar</button>
+      </div>
+      <div class="row" id="fimConf" hidden>
+        <span class="grow">Finalizar e gerar as divergências?</span>
+        <button class="btn small" type="button" id="btnFimSim">Sim, finalizar</button>
+        <button class="btn ghost small" type="button" id="btnFimNao">Voltar</button>
+      </div>
+    </div>
+
+    <div class="panel narrow" id="recBox">
+      <h2>Recontagens</h2>
+      <div class="items" id="recLista"></div>
+      <form id="recForm" autocomplete="off" class="stack" hidden>
+        <p><span class="ua" id="rcUa"></span> <span class="sub" id="rcAviso"></span></p>
+        <label id="rcEndLbl">Endereço onde a UA está<input type="text" id="rcEnd" placeholder="B01-R01-N1" autocapitalize="characters"></label>
+        <label class="check" id="rcNaoLbl"><input type="checkbox" id="rcNao">UA não encontrada</label>
+        <label id="rcKgLbl">Peso físico (kg)<input type="text" id="rcKg" inputmode="decimal" placeholder="0,0"></label>
+        <div class="row"><button class="btn" type="submit">Registrar recontagem</button><button class="btn ghost" type="button" id="rcVolta">Voltar</button></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- PLANO (analista) -->
+  <section id="tab-plano" hidden>
+    <div class="panel" id="planoNovo" hidden>
+      <h2>Novo plano de pré-inventário</h2>
+      <label class="narrow">Nome do plano<input type="text" id="plNome" value="Pré-inventário"></label>
+      <h3>Baias e porta-paletes, e quem conta cada um</h3>
+      <div class="items" id="plBaias"></div>
+      <button class="btn" type="button" id="btnPlCria" style="align-self:flex-start">Criar plano</button>
+    </div>
+    <div class="panel" id="planoBox" hidden>
+      <div class="row">
+        <div class="grow"><h2 id="plTit"></h2><p class="sub" id="plSub"></p></div>
+        <span class="progress" id="plProg"></span>
+        <button class="btn ghost small" type="button" id="btnPlNovo">Novo plano</button>
+      </div>
+      <div class="row" id="plConf" hidden>
+        <span class="grow">Encerrar este plano e montar outro? As contagens e os ajustes continuam guardados.</span>
+        <button class="btn small" type="button" id="btnPlSim">Encerrar plano</button>
+        <button class="btn ghost small" type="button" id="btnPlNao">Voltar</button>
+      </div>
+      <div class="legend">
+        <span><span class="cel">R01-N1</span> não contado</span>
+        <span><span class="cel parc">R01-N1</span> parcial</span>
+        <span><span class="cel ok">✓ R01-N1</span> contado</span>
+        <span><span class="cel rec">↻ R01-N1</span> em recontagem</span>
+        <span><span class="cel div">! R01-N1</span> divergente</span>
+      </div>
+      <div id="plMapa" class="stack"></div>
+    </div>
+  </section>
+
+  <!-- AJUSTES -->
+  <section id="tab-ajustes" hidden>
+    <div class="row">
+      <div class="seg" id="ajFiltro" style="flex:0 1 auto">
+        <button type="button" data-f="aberto" aria-pressed="true">Em aberto</button>
+        <button type="button" data-f="feito" aria-pressed="false">Histórico</button>
+      </div>
+      <div class="seg sm grow" id="ajTipo"></div>
+      <button class="btn" type="button" id="btnLote" disabled>Ajustar selecionadas</button>
+    </div>
+    <div class="panel row" id="loteConf" hidden>
+      <span class="grow" id="loteTxt"></span>
+      <button class="btn small" type="button" id="btnLoteSim">Confirmar ajuste</button>
+      <button class="btn ghost small" type="button" id="btnLoteNao">Voltar</button>
+    </div>
+    <div class="panel"><div class="scroll" id="ajLista"></div></div>
+    <p class="sub">Ajustar grava no sistema o que foi encontrado no físico. Recontar envia a UA para a aba Contar, para a outra pessoa conferir. UA não encontrada e UA sem saldo não têm ajuste automático.</p>
+  </section>
+
+  <!-- ACURACIDADE -->
+  <section id="tab-acuracidade" hidden>
+    <div class="panel row">
+      <label>Meta por UA (%)<input type="text" class="num" id="cfMetaEnd" inputmode="decimal"></label>
+      <label>Meta por kg (%)<input type="text" class="num" id="cfMetaKg" inputmode="decimal"></label>
+      <label>Tolerância de peso (%)<input type="text" class="num" id="cfTol" inputmode="decimal"></label>
+      <button class="btn ghost small" type="button" id="btnCfg" style="align-self:flex-end">Salvar</button>
+      <span class="grow"></span>
+      <button class="btn small" type="button" id="btnXls" style="align-self:flex-end" hidden>Exportar para Excel</button>
+    </div>
+    <div class="stats" id="acStats"></div>
+    <div class="panel">
+      <h2>Evolução da acuracidade</h2>
+      <div class="legend"><span><span class="sw" style="background:var(--s1)"></span>Por UA</span><span><span class="sw" style="background:var(--s2)"></span>Por kg</span><span id="lgMeta"></span></div>
+      <div class="scroll"><div class="chart" id="acChart"></div></div>
+    </div>
+    <div class="cols">
+      <div class="panel"><h2>Por baia e porta-palete</h2><div class="scroll" id="acBaia"></div></div>
+      <div class="panel"><h2>Por produto</h2><div class="scroll" id="acProd"></div></div>
+    </div>
+    <div class="cols">
+      <div class="panel"><h2>Endereços que mais divergem</h2><div class="scroll" id="rkEnd"></div></div>
+      <div class="panel"><h2>Produtos que mais divergem</h2><div class="scroll" id="rkProd"></div></div>
+    </div>
+    <div class="panel"><h2>Por operador</h2><div class="scroll" id="acOper"></div></div>
+    <div class="panel"><h2>Por contagem</h2><div class="scroll" id="acLista"></div></div>
+    <p class="sub">Acuracidade por UA = UAs no endereço certo ÷ UAs auditadas (as do sistema mais as encontradas de fora). Acuracidade por kg = kg no endereço certo ÷ kg auditado. Kg divergente = kg não encontrado, fora do lugar ou vindo de outro endereço.</p>
+  </section>
+
+  <!-- ARMAZÉM -->
+  <section id="tab-armazem" hidden>
+    <div class="panel" id="wmsBox">
+      <div class="row"><h2 class="grow">Ligação com o WMS</h2><span class="chip off" id="wmsSt">Sem chave de acesso</span></div>
+      <div class="row" id="wmsLogin">
+        <label class="grow">Chave de acesso do WMS<input type="password" id="wmsChave" autocomplete="off"></label>
+        <button class="btn" type="button" id="wmsSalvar">Salvar chave</button>
+      </div>
+      <div class="row" id="wmsImp" hidden>
+        <button class="btn" type="button" id="wmsCarregar">Carregar estoque completo do WMS</button>
+        <button class="btn ghost" type="button" id="wmsTrocar">Trocar chave</button>
+      </div>
+      <p class="sub" id="wmsMsg">A chave é gerada no Zion WMS em Avançado › Integração WebService › Chave de Acesso. Ela fica guardada só neste aparelho.</p>
+      <details><summary class="sub" style="cursor:pointer">Servidor da API</summary>
+        <div class="row" style="margin-top:10px">
+          <label class="grow" style="flex-basis:340px">Endereço da API<input type="text" class="sm" style="max-width:none;width:100%" id="cfUrl"></label>
+          <label>Estabelecimento<input type="text" class="num" id="cfEst" inputmode="numeric"></label>
+          <label>Depositante<input type="text" class="sm" id="cfDep"></label>
+          <button class="btn ghost small" type="button" id="cfSalvar" style="align-self:flex-end">Salvar servidor</button>
+        </div></details>
+      <div class="row"><label style="flex:0 1 260px">Seu nome neste aparelho<input type="text" id="opNome" placeholder="Ex.: Lucas"></label>
+        <button class="btn ghost" type="button" id="opSalvar">Salvar nome</button></div>
+    </div>
+    <div class="panel"><h2>Ocupação e dias sem contagem por baia e porta-palete</h2><div class="scroll" id="azBaia"></div></div>
+    <div class="panel">
+      <div class="row"><h2 class="grow">Estoque no sistema</h2>
+        <label style="flex:0 1 240px">Buscar<input type="text" id="posBusca" placeholder="UA, lote ou endereço"></label></div>
+      <div class="scroll" id="posLista"></div>
+    </div>
+  </section>
+  </main>
+</div>
+<div id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const kgf=n=>n==null?'—':Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+const sinal=n=>(n>0?'+':'')+kgf(n);
+const pct=(a,b)=>b?Math.round(a/b*1000)/10:null;
+const pctf=p=>p==null?'—':p.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+const dtf=s=>s?new Date(s).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+const diaf=s=>s?new Date(s).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
+const baiaDe=e=>{e=String(e||'').toUpperCase();let m;if(e.includes('-'))return e.split('-')[0];if(m=e.match(/^M[79]/))return m[0];if(m=e.match(/^M\d{2}(?=[A-Z]\d)/))return m[0];return e};
+const nomeGrupo=v=>(/^M[79]$/.test(v)?'Porta-palete ':/^M\d{2}$/.test(v)?'Baia ':'')+v;
+const limpa=v=>String(v||'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'');
+const addr=e=>e?`<span class="addr">${esc(e)}</span>`:`<span class="addr none">sem endereço</span>`;
+const clone=o=>JSON.parse(JSON.stringify(o));
+const iso=()=>new Date().toISOString();
+const numIn=t=>{t=String(t).trim();if(!t)return null;const n=parseFloat(t.replace(/\./g,'').replace(',','.'));return isFinite(n)&&n>=0?n:NaN};
+
+let db=null,user=null,dl=null,uid=null,ready=false;
+let estoque={},contagens={},ajustes={},names={},plano=null,cfg={metaEnd:98,metaKg:98,tol:1};
+let cur=null,ultimo=null,por='endereco',ajF='aberto',ajT='',reconId=null,plSig='',pts=[];
+const sel=new Set();
+const tol=()=>(Number(cfg.tol)||0)/100;
+const PROB={etq:'Etiqueta ilegível',pal:'Palete avariado',sid:'UA sem identificação',mis:'Produto misturado',blq:'Endereço bloqueado'};
+const MOTIVOS=['Erro de endereçamento','Erro de separação','Avaria','Etiqueta trocada','Erro de pesagem','Outro'];
+
+/* ---------- dados ---------- */
+let fila=Promise.resolve();
+let avisado=false;
+function falhaDados(e){
+  const c=(e&&e.code)||'desconhecido';
+  $('semDados').hidden=false;
+  $('semDadosTxt').textContent=c==='invalid_argument'?'Seu acesso é só de leitura: o que você fizer aqui não fica salvo. Peça permissão de Colaborador.':'Os dados não estão sendo lidos nem salvos (código: '+c+'). A contagem continua nesta tela, mas se perde ao fechar a página.';
+  if(!avisado){avisado=true;toast('Não foi possível salvar (código: '+c+').')}
+}
+const aoVivo=()=>!!window.__saldoAoVivo;
+function grava(col,id,obj){
+  if(!db) return;
+  fila=fila.then(()=>db.collection(col).doc(id).set(clone(obj))).catch(e=>{
+    falhaDados(e);
+  });
+}
+function apaga(col,id){ if(db) fila=fila.then(()=>db.collection(col).doc(id).delete()).catch(()=>{}); }
+function putEstoque(e){estoque[e.ua]=e;grava('estoque',e.ua,e)}
+function putContagem(c){contagens[c.id]=c;grava('contagens',c.id,c)}
+function putAjuste(a){ajustes[a.id]=a;grava('ajustes',a.id,a)}
+function mapa(snap){const m={};snap.docs.forEach(d=>{m[d.id]=clone(d.data())});return m}
+
+async function boot(){
+  try{db=await window.claude?.use?.('db')??null}catch(e){db=null}
+  try{user=await window.claude?.use?.('user')??null}catch(e){user=null}
+  try{dl=await window.claude?.use?.('downloads')??null}catch(e){dl=null}
+  if(user){try{uid=await user.id()}catch(e){}}
+  ready=true;$('btnXls').hidden=!dl||typeof XLSX==='undefined';
+  try{const perm=await window.claude?.use?.('permissions')??null;if(perm){$('btnPerm').hidden=false;$('btnPerm').onclick=()=>{perm.manage().catch(()=>{})}}}catch(e){}
+  if(!db){renderTudo();return}
+  db.collection('estoque').onSnapshot(s=>{estoque=mapa(s);renderTudo()},falhaDados);
+  db.collection('contagens').onSnapshot(s=>{
+    contagens=mapa(s);
+    if(!cur&&uid){const a=Object.values(contagens).find(c=>c.status==='aberta'&&c.operador===uid);if(a)cur=a}
+    resolveNomes();renderCont();renderPlano();renderAj();renderAc();renderAz();
+  },falhaDados);
+  db.collection('ajustes').onSnapshot(s=>{ajustes=mapa(s);renderRec();renderPlano();renderAj();renderAc()},falhaDados);
+  db.collection('planos').onSnapshot(s=>{plano=mapa(s).ativo||null;renderPlano()},falhaDados);
+  db.collection('config').onSnapshot(s=>{const g=mapa(s).geral;if(g)cfg=Object.assign({metaEnd:98,metaKg:98,tol:1},g);renderCfg();renderAc()},falhaDados);
+  renderTudo();
+}
+async function resolveNomes(){
+  if(!user) return;
+  const ids=[...new Set([...Object.values(contagens).map(c=>c.operador),...Object.values(ajustes).flatMap(a=>[a.por,a.recPor]),uid].filter(Boolean))];
+  if(!ids.length) return;
+  try{const ps=await user.profiles(ids);ids.forEach(i=>{names[i]=(ps&&ps[i]&&ps[i].name)||''});}catch(e){}
+  $('quem').textContent=uid&&names[uid]?'Operador: '+names[uid]:'';
+  renderAc();
+}
+const nome=i=>i?(names[i]||'Operador'):'—';
+const finalizadas=()=>Object.values(contagens).filter(c=>c.status==='finalizada'&&c.resumo).sort((a,b)=>b.fim.localeCompare(a.fim));
+const prodDesc=p=>{const e=Object.values(estoque).find(e=>e.produto===p);return e?e.descricao:''};
+const aberto=a=>a.status==='pendente'||a.status==='confirmada'||a.status==='recontar';
+
+/* ---------- contar ---------- */
+const DESC={endereco:'Informe o endereço e bipe as UAs que estão nele. O app confere se cada UA está endereçada ali.',
+  baia:'Conte todas as UAs de uma baia (M01, M02…) ou de um porta-palete (M7, M9). O que não for bipado entra como não encontrado.',
+  lote:'Conte todas as UAs de um lote, em qualquer endereço.'};
+function renderNova(){
+  document.querySelectorAll('#tipoSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.por===por));
+  $('tipoDesc').textContent=DESC[por];
+  $('valorLbl').hidden=por==='endereco';$('novoEndLbl').hidden=por!=='endereco';
+  $('valorTxt').textContent=por==='lote'?'Lote':'Baia ou porta-palete';
+  const vals=[...new Set(Object.values(estoque).map(e=>por==='lote'?e.lote:baiaDe(e.endereco)).filter(Boolean))].sort();
+  const s=$('valorSel'),old=s.value;
+  s.innerHTML=vals.map(v=>`<option>${esc(v)}</option>`).join('');
+  if(vals.includes(old)) s.value=old;
+  $('btnIniciar').disabled=por!=='endereco'&&!vals.length;
+}
+function visitados(c){return new Set([...(c.por==='endereco'&&c.valor?[c.valor]:[]),...Object.values(c.itens).map(i=>i.endereco),...Object.keys(c.vazios||{}),...Object.keys(c.org||{})])}
+function escopo(c){
+  const all=Object.values(estoque);
+  if(c.por==='baia') return all.filter(e=>baiaDe(e.endereco)===c.valor);
+  if(c.por==='lote') return all.filter(e=>e.lote===c.valor);
+  const ends=new Set([...(c.valor?[c.valor]:[]),...Object.values(c.itens).map(i=>i.endereco),...Object.keys(c.vazios||{})]);
+  return all.filter(e=>ends.has(e.endereco));
+}
+const titulo=c=>c.por==='endereco'?(c.valor?'Endereço '+c.valor:'Endereçamento'):c.por==='baia'?nomeGrupo(c.valor):'Lote '+c.valor;
+function renderOrg(){
+  const e=limpa($('inEnd').value);
+  $('orgBox').hidden=!e||!cur; if(!e||!cur) return;
+  const on=new Set((cur.org||{})[e]||[]);
+  $('orgChips').innerHTML=Object.entries(PROB).map(([k,v])=>`<button type="button" data-prob="${k}" aria-pressed="${on.has(k)}">${v}</button>`).join('');
+  $('btnVazio').textContent=(cur.vazios||{})[e]?'Marcado como vazio (desfazer)':'Endereço vazio';
+}
+function renderCont(){
+  $('novaBox').hidden=!!cur; $('contBox').hidden=!cur;
+  $('resBox').hidden=!!cur||!ultimo;
+  if(ultimo&&!cur)$('resBox').innerHTML=auditoria(ultimo);
+  if(!cur) return;
+  $('fonteAviso').textContent=aoVivo()?'A conferência com o sistema aparece ao finalizar. UA sem saldo é avisada na hora, sem parar a bipagem.':'Sem chave de acesso do WMS: a conferência usa só o estoque carregado no app. Informe a chave na aba Armazém.';
+  const fixo=cur.por==='endereco'&&!!cur.valor;$('endLbl').hidden=fixo;if(fixo)$('inEnd').value=cur.valor;
+  const its=Object.entries(cur.itens).sort((a,b)=>b[1].hora.localeCompare(a[1].hora));
+  $('contTit').textContent=titulo(cur);
+  const tot=escopo(cur).length;
+  $('contProg').textContent=its.length+(tot?' de '+tot:'')+' UA'+(its.length===1&&!tot?'':'s');
+  $('contBar').hidden=!tot;$('contBar').firstElementChild.style.width=(tot?Math.min(100,its.length/tot*100):0)+'%';
+  $('kgLbl').hidden=!$('confKg').checked;
+  const vz=Object.keys(cur.vazios||{});
+  $('contItens').innerHTML=(its.length||vz.length)?its.map(([ua,i])=>`<div><span class="ua">${esc(ua)}</span>${fixo?'':addr(i.endereco)}${i.kg==null?'':'<span>'+kgf(i.kg)+' kg</span>'}${i.sem?(aoVivo()?'<span class="chip crit">UA sem saldo no sistema</span>':'<span class="chip off">Fora do estoque carregado</span>'):''}<span class="sp"></span>
+    <button class="btn ghost small" type="button" data-rm="${esc(ua)}">Remover</button></div>`).join('')+
+    vz.map(e=>`<div>${addr(e)}<span class="sub">endereço vazio</span></div>`).join('')
+    :'<p class="empty">Nenhuma UA registrada ainda.</p>';
+  renderOrg();
+}
+function aplicaSaldo(r){if(!r)return;(r.removidas||[]).forEach(k=>{delete estoque[k]});Object.assign(estoque,r.docs||{})}
+async function sinc(ends,uas){if(!window.__sincSaldo)return;try{aplicaSaldo(await window.__sincSaldo(ends,uas))}catch(e){}}
+async function verificaUa(c,ua){
+  await sinc([],[ua]);
+  const i=c.itens[ua];if(!i||c.status!=='aberta')return;
+  const sem=!estoque[ua];if(!!i.sem!==sem){i.sem=sem;putContagem(c);if(cur===c)renderCont()}
+}
+function iniciar(){
+  const valor=por==='endereco'?limpa($('novoEnd').value):$('valorSel').value;
+  if(por==='endereco'&&!valor){toast('Informe o endereço.');$('novoEnd').focus();return}
+  cur={id:'c'+Date.now().toString(36),por,valor,operador:uid||'',inicio:iso(),status:'aberta',itens:{},org:{},vazios:{}};
+  ultimo=null; putContagem(cur); $('novoEnd').value=''; $('inEnd').value=por==='endereco'?valor:''; renderCont();
+  (por==='endereco'?$('inUa'):$('inEnd')).focus();
+  if(por==='endereco')sinc([valor],[]);
+}
+function registrar(){
+  const e=limpa($('inEnd').value),ua=limpa($('inUa').value);
+  if(!e){toast('Bipe o endereço primeiro.');$('inEnd').focus();return}
+  if(!ua){toast('Bipe a UA.');$('inUa').focus();return}
+  let kg=null;
+  if($('confKg').checked){
+    kg=numIn($('inKg').value);
+    if(kg===null){$('inKg').focus();return}
+    if(isNaN(kg)){toast('Peso inválido. Use só números, ex.: 742,5');$('inKg').focus();return}
+  }
+  if(cur.itens[ua]){toast('UA '+ua+' já foi bipada nesta contagem.');$('inUa').value='';bipPrev=0;$('inKg').value='';$('inUa').focus();return}
+  cur.itens[ua]={endereco:e,kg,hora:iso()};
+  if(cur.vazios) delete cur.vazios[e];
+  putContagem(cur); $('inUa').value='';bipPrev=0; $('inKg').value=''; $('inEnd').value=e;
+  renderCont(); $('inUa').focus(); verificaUa(cur,ua);
+}
+function finalizar(){
+  const c=cur,escp=escopo(c),noEsc=new Set(escp.map(s=>s.ua)),its=c.itens,agora=iso(),T=tol();
+  const r={escopo:escp.length,contadas:0,endOk:0,kgContadas:0,kgOk:0,kgSist:0,kgFis:0,nEnd:0,nKg:0,nNao:0,nSobra:0,esperadas:escp.length,kgEsc:0,kgCerto:0,kgFalta:0,kgFora:0};
+  const novos=[],det=[];
+  const mk=(ua,tipo,sist,fis,s)=>novos.push({id:`${c.id}-${ua}-${tipo}`,contagem:c.id,ua,tipo,sist,fis,status:'pendente',criado:agora,por:'',em:'',motivo:'',
+    prod:s?s.produto:'',endRef:(s?s.endereco:fis)||''});
+  for(const ua in its){
+    const i=its[ua],s=estoque[ua]; r.contadas++;
+    if(!s){r.nSobra++;r.escopo++;mk(ua,'sobra',null,i.endereco,null);det.push({ua,baia:baiaDe(i.endereco),prod:'',end:0,kg:null,dk:0,ks:0,sem:1});continue}
+    const ks=Number(s.kg)||0;
+    if(!noEsc.has(ua)){r.escopo++;r.kgFora+=ks}
+    const eo=s.endereco===i.endereco?1:0;
+    if(eo){r.endOk++;r.kgCerto+=ks} else{r.nEnd++;mk(ua,'end',s.endereco,i.endereco,s)}
+    let ko=null,dk=0;
+    if(i.kg!=null){dk=i.kg-s.kg;ko=Math.abs(dk)<=s.kg*T?1:0;r.kgContadas++;r.kgSist+=s.kg;r.kgFis+=i.kg;
+      if(ko) r.kgOk++; else{r.nKg++;mk(ua,'kg',s.kg,i.kg,s)}}
+    det.push({ua,baia:baiaDe(i.endereco),prod:s.produto,end:eo,kg:ko,dk,ks});
+  }
+  escp.forEach(s=>{const ks=Number(s.kg)||0;r.kgEsc+=ks;if(!its[s.ua]){r.nNao++;r.kgFalta+=ks;mk(s.ua,'nao',s.endereco,null,s);det.push({ua:s.ua,baia:baiaDe(s.endereco),prod:s.produto,end:0,kg:null,dk:0,ks})}});
+  c.fonte=aoVivo()?'wms':'carregado';c.ends=[...visitados(c)];c.det=det;c.status='finalizada';c.fim=agora;c.resumo=r;
+  putContagem(c);novos.forEach(putAjuste);
+  ultimo=c;cur=null;$('fimConf').hidden=true;renderTudo();
+}
+
+const accKg=r=>r.kgCerto==null?null:pct(r.kgCerto,(r.kgEsc||0)+(r.kgFora||0));
+function auditoria(c){
+  const r=c.resumo,as=Object.values(ajustes).filter(a=>a.contagem===c.id),n=r.nEnd+r.nKg+r.nNao+r.nSobra;
+  const pd=ua=>{const s=estoque[ua];return s?esc(s.descricao):''},by=t=>as.filter(a=>a.tipo===t);
+  const sec=(t,cls,l,cab,lin)=>l.length?`<h3>${t} <span class="chip ${cls}">${l.length}</span></h3><div class="scroll"><table><thead><tr>${cab.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${l.map(lin).join('')}</tbody></table></div>`:'';
+  return `<div class="row"><div class="grow"><h2>Auditoria · ${esc(titulo(c))}</h2><p class="sub">${dtf(c.fim)}</p></div><span class="chip ${n?'crit':'ok'}">${n?n+' divergência'+(n>1?'s':''):'Sem divergência'}</span></div>
+  ${c.fonte==='carregado'?'<p class="notice warn">Comparado com o estoque carregado no app, não com o WMS ao vivo. Aqui, "sem saldo" significa só que a UA não está nesse estoque.</p>':''}
+  <div class="stats">${[[r.contadas,'UAs bipadas'],[r.esperadas??r.escopo,'UAs no sistema'],[pctf(pct(r.endOk,r.escopo)),'Acuracidade por UA'],[pctf(accKg(r)),'Acuracidade por kg']].map(s=>`<div class="stat"><span class="t">${s[1]}</span><b>${s[0]}</b></div>`).join('')}</div>
+  <p class="sub">Kg no sistema ${kgf(r.kgEsc)} · no endereço certo ${kgf(r.kgCerto)} · não encontrados ${kgf(r.kgFalta)} · vindos de outro endereço ${kgf(r.kgFora)}</p>
+  ${sec('Bipadas aqui, mas o sistema aponta outro endereço','warn',by('end'),['UA','Produto','Bipada em','No sistema está em'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td>${addr(a.fis)}</td><td>${addr(a.sist)}</td></tr>`)}
+  ${sec('No sistema neste endereço, mas não bipadas','crit',by('nao'),['UA','Produto','Endereço no sistema','Kg'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td>${addr(a.sist)}</td><td class="num">${kgf(estoque[a.ua]&&estoque[a.ua].kg)}</td></tr>`)}
+  ${sec('UAs sem saldo no sistema','crit',by('sobra'),['UA','Bipada em'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${addr(a.fis)}</td></tr>`)}
+  ${sec('Peso divergente','warn',by('kg'),['UA','Produto','Sistema','Físico','Diferença'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td class="num">${kgf(a.sist)}</td><td class="num">${kgf(a.fis)}</td><td class="num">${sinal(a.fis-a.sist)}</td></tr>`)}
+  <div class="row"><button class="btn" type="button" data-novo="1">Contar outro endereço</button>${n?'<button class="btn ghost" type="button" data-go="ajustes">Ver na aba Ajustes</button>':''}</div>`;
+}
+
+/* ---------- recontagem ---------- */
+const TIPO={end:['Endereço','warn'],kg:['Peso','warn'],nao:['Não encontrada','crit'],sobra:['Sem saldo no sistema','crit']};
+function renderRec(){
+  const l=Object.values(ajustes).filter(a=>a.status==='recontar');
+  $('nRec').hidden=!l.length;$('nRec').textContent=l.length;
+  if(reconId&&(!ajustes[reconId]||ajustes[reconId].status!=='recontar')){reconId=null}
+  $('recForm').hidden=!reconId;$('recLista').hidden=!!reconId;
+  $('recLista').innerHTML=l.length?l.map(a=>{const t=TIPO[a.tipo]||[a.tipo,'warn'];
+    return `<div><span class="ua">${esc(a.ua)}</span><span class="chip ${t[1]}">${t[0]}</span><span class="sp"></span><button class="btn small" type="button" data-rec="${esc(a.id)}">Recontar</button></div>`}).join('')
+    :`<p class="empty">${ready?'Nenhuma UA aguardando recontagem. Elas chegam aqui quando alguém pede recontagem na aba Ajustes.':'Carregando…'}</p>`;
+  if(reconId){
+    const a=ajustes[reconId],c=contagens[a.contagem],kg=a.tipo==='kg';
+    $('rcUa').textContent=a.ua;
+    $('rcAviso').textContent=c&&uid&&c.operador===uid?'Você fez a primeira contagem. O ideal é a outra pessoa recontar.':'';
+    $('rcEndLbl').hidden=kg;$('rcNaoLbl').hidden=kg;$('rcKgLbl').hidden=!kg;
+  }
+}
+function gravaRecont(){
+  const a=ajustes[reconId]; if(!a) return;
+  const s=estoque[a.ua],T=tol(),nao=$('rcNao').checked,e=limpa($('rcEnd').value);
+  let st='confirmada';
+  if(a.tipo==='kg'){
+    const kg=numIn($('rcKg').value);
+    if(kg===null||isNaN(kg)){toast('Informe o peso, ex.: 742,5');$('rcKg').focus();return}
+    if(s&&Math.abs(kg-s.kg)<=s.kg*T) st='sem_divergencia'; else a.fis=kg;
+  }else{
+    if(!nao&&!e){toast('Bipe o endereço ou marque UA não encontrada.');$('rcEnd').focus();return}
+    if(a.tipo==='sobra'){ if(nao) st='sem_divergencia'; else a.fis=e; }
+    else if(nao){a.tipo='nao';a.fis=null}
+    else if(s&&e===s.endereco) st='sem_divergencia';
+    else{a.tipo='end';a.sist=s?s.endereco:a.sist;a.fis=e}
+  }
+  a.status=st;a.recPor=uid||'';a.recEm=iso();if(st==='sem_divergencia'){a.em=a.recEm}
+  putAjuste(a);reconId=null;$('rcEnd').value='';$('rcKg').value='';$('rcNao').checked=false;
+  renderRec();renderAj();renderPlano();renderAc();
+  toast(st==='sem_divergencia'?'Recontagem bateu com o sistema. Divergência encerrada.':'Divergência confirmada. Está na aba Ajustes.');
+}
+
+/* ---------- ajustes ---------- */
+const auto=a=>a.tipo==='end'||a.tipo==='kg';
+function renderAj(){
+  const all=Object.values(ajustes),abertos=all.filter(aberto);
+  const nAj=abertos.filter(a=>a.status!=='recontar').length;
+  $('nPend').hidden=!nAj;$('nPend').textContent=nAj;
+  document.querySelectorAll('#ajFiltro button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===ajF));
+  const ab=ajF==='aberto';
+  const base=ab?abertos:all.filter(a=>!aberto(a));
+  $('ajTipo').innerHTML=[['','Todas'],['end','Endereço'],['nao','Não encontrada'],['sobra','Sem saldo'],['kg','Peso']].map(([k,t])=>`<button type="button" data-t="${k}" aria-pressed="${ajT===k}">${t} (${k?base.filter(a=>a.tipo===k).length:base.length})</button>`).join('');
+  const lista=base.filter(a=>!ajT||a.tipo===ajT).sort((a,b)=>(b.em||b.criado).localeCompare(a.em||a.criado));
+  [...sel].forEach(id=>{const a=ajustes[id];if(!a||!aberto(a)||a.status==='recontar')sel.delete(id)});
+  $('btnLote').disabled=!sel.size;$('btnLote').textContent=sel.size?`Ajustar selecionadas (${sel.size})`:'Ajustar selecionadas';
+  if(!sel.size)$('loteConf').hidden=true;
+  if(!lista.length){$('ajLista').innerHTML=`<p class="empty">${!ready?'Carregando…':ab?'Nenhuma divergência em aberto. Elas aparecem aqui quando uma contagem é finalizada.':'Nenhum ajuste feito ainda.'}</p>`;return}
+  $('ajLista').innerHTML=`<table><thead><tr>${ab?'<th></th>':''}<th>Divergência</th><th>UA</th><th>Produto</th><th>Sistema</th><th>Físico</th><th class="num">Diferença</th><th>Motivo</th><th>Contagem</th><th>${ab?'':'Situação'}</th></tr></thead><tbody>`+
+  lista.map(a=>{
+    const s=estoque[a.ua],t=TIPO[a.tipo]||[a.tipo,'warn'],c=contagens[a.contagem],id=esc(a.id);
+    const kg=a.tipo==='kg',dif=kg?a.fis-a.sist:null,rec=a.status==='recontar';
+    const sis=kg?kgf(a.sist)+' kg':addr(a.sist),fis=kg?kgf(a.fis)+' kg':(a.tipo==='nao'?'<span class="sub">não bipada</span>':addr(a.fis));
+    let acao,mot;
+    if(ab){
+      mot=rec?'':`<select class="sm" aria-label="Motivo de ${esc(a.ua)}" data-mot="${id}"><option value="">Sem motivo</option>${MOTIVOS.map(m=>`<option ${a.motivo===m?'selected':''}>${m}</option>`).join('')}</select>`;
+      acao=rec?'<span class="chip warn">Aguardando recontagem</span>'
+        :(auto(a)?`<button class="btn small" type="button" data-aj="${id}">Ajustar</button> `:(a.status==='confirmada'?`<button class="btn small" type="button" data-aj="${id}">Encerrar</button> `:''))
+         +(a.status==='pendente'?`<button class="btn ghost small" type="button" data-rc="${id}">Recontar</button>`:'<span class="chip off">Recontada</span>');
+    }else{
+      mot=esc(a.motivo||'');
+      const lab=a.status==='sem_divergencia'?['Sem divergência na recontagem','ok']:[auto(a)?'Ajustado':'Encerrada','ok'];
+      acao=`<span class="chip ${lab[1]}">${lab[0]}</span> <span class="sub">${esc(nome(a.por||a.recPor))} ${dtf(a.em)}</span>`;
+    }
+    return `<tr>${ab?`<td>${auto(a)&&!rec?`<input type="checkbox" aria-label="Selecionar ${esc(a.ua)}" data-sel="${id}" ${sel.has(a.id)?'checked':''}>`:''}</td>`:''}
+      <td><span class="chip ${t[1]}">${t[0]}</span></td><td class="ua">${esc(a.ua)}</td>
+      <td class="nw">${s?esc(s.descricao)+'<br><span class="sub">lote '+esc(s.lote)+'</span>':'<span class="sub">sem saldo no sistema</span>'}</td>
+      <td>${sis}</td><td>${fis}</td>
+      <td class="num">${kg?sinal(dif)+' kg':''}</td><td>${mot}</td>
+      <td class="sub nw">${c?esc(titulo(c))+'<br>'+dtf(c.fim):''}</td><td class="nw">${acao}</td></tr>`}).join('')+'</tbody></table>';
+}
+function ajustar(id){
+  const a=ajustes[id]; if(!a||!aberto(a)||a.status==='recontar') return;
+  const s=estoque[a.ua];
+  if(auto(a)&&s){ if(a.tipo==='end') s.endereco=a.fis; else s.kg=a.fis; putEstoque(s); }
+  a.status='ajustado';a.por=uid||'';a.em=iso();sel.delete(id);putAjuste(a);
+}
+
+/* ---------- plano e mapa de cobertura ---------- */
+function renderPlano(){
+  const baias=[...new Set(Object.values(estoque).map(e=>baiaDe(e.endereco)))].sort();
+  $('planoNovo').hidden=!!plano;$('planoBox').hidden=!plano;
+  if(!plano){
+    const sig=baias.join('|');
+    if(sig!==plSig){plSig=sig;
+      $('plBaias').innerHTML=baias.length?baias.map(b=>`<div><label class="check"><input type="checkbox" data-plb="${esc(b)}" checked>${esc(nomeGrupo(b))}</label><span class="sp"></span>
+        <select class="sm" aria-label="Quem conta a baia ${esc(b)}" data-plq="${esc(b)}"><option value="">Sem responsável</option><option>Analista</option><option>Assistente</option></select></div>`).join('')
+        :`<p class="empty">${ready?'Nenhuma baia no estoque do sistema.':'Carregando…'}</p>`;}
+    $('btnPlCria').disabled=!baias.length;
+    return;
+  }
+  const ini=plano.inicio,pb=plano.baias||{};
+  const cont=new Set();
+  Object.values(contagens).forEach(c=>Object.entries(c.itens||{}).forEach(([ua,i])=>{if(i.hora>=ini)cont.add(ua)}));
+  const st={};
+  Object.values(ajustes).forEach(a=>{if(a.criado<ini||!aberto(a))return;const k=a.status==='recontar'?'rec':'div';
+    [typeof a.sist==='string'?a.sist:null,typeof a.fis==='string'?a.fis:null,estoque[a.ua]&&estoque[a.ua].endereco].forEach(e=>{if(e&&st[e]!=='div')st[e]=k})});
+  let T=0,C=0,html='';
+  Object.keys(pb).sort().forEach(b=>{
+    const uas=Object.values(estoque).filter(e=>baiaDe(e.endereco)===b),n=uas.filter(e=>cont.has(e.ua)).length;
+    T+=uas.length;C+=n;
+    const ends={};uas.forEach(e=>{(ends[e.endereco]=ends[e.endereco]||[]).push(e)});
+    const p=pct(n,uas.length)||0;
+    html+=`<div class="baiaCard"><div class="row"><b class="grow">${esc(nomeGrupo(b))} <span class="sub">${esc(pb[b]||'sem responsável')}</span></b>
+      <span class="bar wide" style="flex:1 1 140px"><i style="width:${p}%"></i></span><span class="ua">${n}/${uas.length} UAs</span></div>
+      <div class="mapa">${Object.keys(ends).sort().map(e=>{const l=ends[e],k=l.filter(x=>cont.has(x.ua)).length;
+        const cls=st[e]||(k===l.length?'ok':k?'parc':''),sym={ok:'✓ ',rec:'↻ ',div:'! '}[cls]||'';
+        const txt={ok:'contado',parc:'parcial',rec:'em recontagem',div:'divergente','':'não contado'}[cls];
+        return `<span class="cel ${cls}" title="${esc(e)}: ${txt}, ${k} de ${l.length} UAs">${sym}${esc((e.includes('-')?e.slice(b.length+1):e.slice(b.length))||e)}</span>`}).join('')||'<span class="sub">Sem UAs nesta baia.</span>'}</div></div>`;
+  });
+  $('plTit').textContent=plano.nome||'Plano';
+  $('plSub').textContent='Iniciado em '+dtf(ini);
+  $('plProg').textContent=pctf(pct(C,T)||0);
+  $('plMapa').innerHTML=html||'<p class="empty">Este plano não tem baias.</p>';
+}
+function criaPlano(){
+  const baias={};
+  document.querySelectorAll('[data-plb]').forEach(c=>{if(c.checked){const q=document.querySelector(`[data-plq="${c.dataset.plb}"]`);baias[c.dataset.plb]=q?q.value:''}});
+  if(!Object.keys(baias).length){toast('Marque ao menos uma baia.');return}
+  plano={nome:$('plNome').value.trim()||'Pré-inventário',inicio:iso(),baias,criadoPor:uid||''};
+  grava('planos','ativo',plano);renderPlano();toast('Plano criado.');
+}
+
+/* ---------- acuracidade ---------- */
+function barra(p,meta){if(p==null)return'';return`<span class="bar"><i class="${p>=meta?'':p>=meta-8?'mid':'low'}" style="width:${Math.max(0,Math.min(100,p))}%"></i></span>`}
+const metaChip=(p,m)=>p==null?'':`<span class="chip ${p>=m?'ok':'crit'}">${p>=m?'Na meta':'Abaixo da meta'}</span>`;
+function agrega(keyFn){
+  const m={};
+  finalizadas().forEach(c=>(c.det||[]).forEach(d=>{const k=keyFn(d,c);if(k==null||k==='')return;
+    const x=m[k]||(m[k]={k,n:0,endOk:0,kgN:0,kgOk:0,dk:0,adk:0,ks:0,ksOk:0,sem:0,cs:new Set()});
+    x.n++;x.endOk+=d.end;x.ks+=d.ks||0;x.ksOk+=d.end?(d.ks||0):0;x.sem+=d.sem||0;x.cs.add(c.id);if(d.kg!=null){x.kgN++;x.kgOk+=d.kg;x.dk+=d.dk;x.adk+=Math.abs(d.dk)}}));
+  return Object.values(m);
+}
+function orgPorBaia(){
+  const m={};
+  finalizadas().forEach(c=>(c.ends||[]).forEach(e=>{const b=baiaDe(e),x=m[b]||(m[b]={t:0,p:0});x.t++;if(((c.org||{})[e]||[]).length)x.p++}));
+  return m;
+}
+function ranking(keyFn){
+  const m={};
+  Object.values(ajustes).forEach(a=>{if(a.status==='sem_divergencia')return;const k=keyFn(a);if(!k)return;m[k]=(m[k]||0)+1});
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,6);
+}
+const endDe=a=>a.endRef||(typeof a.sist==='string'?a.sist:'')||(typeof a.fis==='string'?a.fis:'');
+const prodDe=a=>a.prod||(estoque[a.ua]?estoque[a.ua].produto:'');
+function renderCfg(){
+  [['cfMetaEnd','metaEnd'],['cfMetaKg','metaKg'],['cfTol','tol']].forEach(([i,k])=>{if(document.activeElement!==$(i))$(i).value=String(cfg[k]).replace('.',',')});
+}
+function serieDias(){
+  const m={};
+  finalizadas().forEach(c=>{const d=new Date(c.fim),k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const x=m[k]||(m[k]={k,fim:c.fim,e:0,E:0,p:0,P:0});x.e+=c.resumo.endOk;x.E+=c.resumo.escopo;x.p+=c.resumo.kgCerto||0;x.P+=(c.resumo.kgEsc||0)+(c.resumo.kgFora||0)});
+  return Object.values(m).sort((a,b)=>a.k.localeCompare(b.k)).map(x=>({dia:diaf(x.fim),end:pct(x.e,x.E),kg:pct(x.p,x.P)}));
+}
+function renderChart(){
+  pts=serieDias();
+  const mE=Number(cfg.metaEnd),mK=Number(cfg.metaKg);
+  $('lgMeta').innerHTML='<span class="sw" style="background:repeating-linear-gradient(90deg,var(--muted) 0 5px,transparent 5px 9px)"></span>Meta';
+  if(!pts.length){$('acChart').innerHTML=`<p class="empty">${ready?'A evolução aparece aqui depois da primeira contagem finalizada.':'Carregando…'}</p>`;return}
+  const W=720,H=250,L=44,R=64,Tp=18,B=30,vals=pts.flatMap(p=>[p.end,p.kg]).filter(v=>v!=null).concat([mE,mK]);
+  const lo=Math.max(0,Math.floor((Math.min(...vals)-5)/10)*10),hi=100;
+  const X=i=>pts.length===1?(L+W-R)/2:L+i*(W-L-R)/(pts.length-1),Y=v=>Tp+(hi-v)*(H-Tp-B)/(hi-lo);
+  const step=(hi-lo)>50?20:10;let g='';
+  for(let v=lo;v<=hi;v+=step) g+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"></line><text x="${L-8}" y="${Y(v)+4}" text-anchor="end">${v}%</text>`;
+  [...new Set([mE,mK])].forEach(m=>{if(m>=lo&&m<=hi)g+=`<line class="meta" x1="${L}" x2="${W-R}" y1="${Y(m)}" y2="${Y(m)}"></line><text x="${W-R-4}" y="${Y(m)+14}" text-anchor="end">Meta ${String(m).replace('.',',')}%</text>`});
+  const linha=(key,cor)=>{let d='',pen=false,dots='';
+    pts.forEach((p,i)=>{if(p[key]==null){pen=false;return}d+=(pen?'L':'M')+X(i)+' '+Y(p[key])+' ';pen=true;
+      dots+=`<circle cx="${X(i)}" cy="${Y(p[key])}" r="4.5" fill="var(${cor})" stroke="var(--surface)" stroke-width="2"></circle>`});
+    return `<path d="${d}" fill="none" stroke="var(${cor})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>${dots}`};
+  const last=pts[pts.length-1],xe=X(pts.length-1)+10;let ye=last.end==null?null:Y(last.end)+4,yk=last.kg==null?null:Y(last.kg)+4;
+  if(ye!=null&&yk!=null&&Math.abs(ye-yk)<14){if(ye<=yk){ye-=7;yk+=7}else{ye+=7;yk-=7}}
+  const cw=pts.length===1?W-L-R:(W-L-R)/(pts.length-1);
+  $('acChart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Acuracidade por UA e por kg, por dia de contagem">${g}
+    ${pts.map((p,i)=>`<text x="${X(i)}" y="${H-8}" text-anchor="middle">${p.dia}</text>`).join('')}
+    <line class="cross" id="cross" y1="${Tp}" y2="${H-B}" x1="0" x2="0" visibility="hidden"></line>
+    ${linha('end','--s1')}${linha('kg','--s2')}
+    ${ye!=null?`<text class="val" x="${xe}" y="${ye}">${pctf(last.end)}</text>`:''}${yk!=null?`<text class="val" x="${xe}" y="${yk}">${pctf(last.kg)}</text>`:''}
+    ${pts.map((p,i)=>`<rect class="hit" tabindex="0" data-i="${i}" data-x="${X(i)}" x="${X(i)-cw/2}" y="${Tp}" width="${cw}" height="${H-Tp-B}" aria-label="${p.dia}: por UA ${pctf(p.end)}, por kg ${pctf(p.kg)}"></rect>`).join('')}
+    </svg><div id="tip" hidden></div>`;
+}
+function tipOn(r){
+  const p=pts[r.dataset.i];if(!p)return;const x=Number(r.dataset.x),c=$('cross'),t=$('tip');
+  c.setAttribute('x1',x);c.setAttribute('x2',x);c.setAttribute('visibility','visible');
+  t.textContent=`${p.dia} · Por UA ${pctf(p.end)} · Por kg ${pctf(p.kg)}`;t.style.left=Math.max(18,Math.min(82,x/720*100))+'%';t.hidden=false;
+}
+function tipOff(){const c=$('cross'),t=$('tip');if(c)c.setAttribute('visibility','hidden');if(t)t.hidden=true}
+function renderAc(){
+  const fs=finalizadas(),mE=Number(cfg.metaEnd),mK=Number(cfg.metaKg),vazio=`<p class="empty">${ready?'Sem contagens finalizadas ainda.':'Carregando…'}</p>`;
+  const t=fs.reduce((t,c)=>{for(const k in c.resumo)t[k]=(t[k]||0)+c.resumo[k];return t},{});
+  const pend=Object.values(ajustes).filter(aberto).length;
+  const pe=pct(t.endOk||0,t.escopo||0),pk=pct(t.kgOk||0,t.kgContadas||0),dk=(t.kgFis||0)-(t.kgSist||0);
+  const pq=t.kgCerto==null?null:pct(t.kgCerto,(t.kgEsc||0)+(t.kgFora||0));
+  $('acStats').innerHTML=[[pctf(pe),'Acuracidade por UA',metaChip(pe,mE)],[pctf(pq),'Acuracidade por kg',metaChip(pq,mK)],
+    [fs.length?kgf((t.kgEsc||0)+(t.kgFora||0)-(t.kgCerto||0))+' kg':'—','Kg divergente',''],[t.nSobra||0,'UAs sem saldo no sistema',''],[pend,'Divergências em aberto','']]
+    .map(s=>`<div class="stat"><b>${s[0]}</b><span class="t">${s[1]}</span>${s[2]}</div>`).join('');
+  renderChart();
+  const og=orgPorBaia();
+  const bs=agrega(d=>d.baia).sort((a,b)=>a.k.localeCompare(b.k));
+  $('acBaia').innerHTML=bs.length?'<table><thead><tr><th>Baia</th><th class="num">UAs</th><th>Por UA</th><th>Por kg</th><th class="num">Kg auditado</th><th class="num">Kg divergente</th><th class="num">Sem saldo</th><th>Organização</th><th></th></tr></thead><tbody>'+
+    bs.map(x=>{const a=pct(x.endOk,x.n),k=pct(x.ksOk,x.ks),o=og[x.k];
+      return `<tr><td><b>${esc(x.k)}</b></td><td class="num">${x.n}</td><td class="nw">${barra(a,mE)}${pctf(a)}</td><td class="nw">${barra(k,mK)}${pctf(k)}</td><td class="num">${kgf(x.ks)}</td><td class="num">${kgf(x.ks-x.ksOk)}</td><td class="num">${x.sem}</td>
+      <td class="nw">${o?pctf(pct(o.t-o.p,o.t))+` <span class="sub">${o.p} com problema</span>`:'—'}</td><td>${metaChip(a,mE)}</td></tr>`}).join('')+'</tbody></table>':vazio;
+  const ps=agrega(d=>d.prod).sort((a,b)=>b.adk-a.adk||a.k.localeCompare(b.k));
+  $('acProd').innerHTML=ps.length?'<table><thead><tr><th>Produto</th><th class="num">UAs</th><th>Endereço</th><th>Peso</th><th class="num">Dif. kg</th><th class="num">Impacto kg</th></tr></thead><tbody>'+
+    ps.map(x=>{const a=pct(x.endOk,x.n),k=pct(x.kgOk,x.kgN);
+      return `<tr><td class="nw"><span class="ua">${esc(x.k)}</span> <span class="sub">${esc(prodDesc(x.k))}</span></td><td class="num">${x.n}</td><td class="nw">${pctf(a)}</td><td class="nw">${pctf(k)}</td><td class="num">${sinal(x.dk)}</td><td class="num">${kgf(x.adk)}</td></tr>`}).join('')+'</tbody></table>':vazio;
+  const rk=(l,fmt)=>l.length?'<table><thead><tr><th>Onde</th><th class="num">Divergências</th><th></th></tr></thead><tbody>'+l.map(([k,n])=>`<tr><td>${fmt(k)}</td><td class="num">${n}</td><td>${n>1?'<span class="chip crit">Reincidente</span>':''}</td></tr>`).join('')+'</tbody></table>'
+    :`<p class="empty">${ready?'Nenhuma divergência registrada.':'Carregando…'}</p>`;
+  $('rkEnd').innerHTML=rk(ranking(endDe),addr);
+  $('rkProd').innerHTML=rk(ranking(prodDe),k=>`<span class="ua">${esc(k)}</span> <span class="sub">${esc(prodDesc(k))}</span>`);
+  const os=agrega((d,c)=>c.operador||'-');
+  $('acOper').innerHTML=os.length?'<table><thead><tr><th>Operador</th><th class="num">Contagens</th><th class="num">UAs</th><th>Endereço</th><th>Peso</th></tr></thead><tbody>'+
+    os.map(x=>`<tr><td>${esc(x.k==='-'?'Não identificado':nome(x.k))}</td><td class="num">${x.cs.size}</td><td class="num">${x.n}</td><td class="nw">${pctf(pct(x.endOk,x.n))}</td><td class="nw">${pctf(pct(x.kgOk,x.kgN))}</td></tr>`).join('')+'</tbody></table>':vazio;
+  if(!fs.length){$('acLista').innerHTML=`<p class="empty">${ready?'Nenhuma contagem finalizada. Faça uma na aba Contar para ver a acuracidade aqui.':'Carregando…'}</p>`;return}
+  $('acLista').innerHTML='<table><thead><tr><th>Data</th><th>Contagem</th><th>Operador</th><th class="num">UAs</th><th>Por UA</th><th>Por kg</th><th class="num">Kg sistema</th><th class="num">Kg certo</th><th class="num">Kg divergente</th><th>Divergências</th></tr></thead><tbody>'+
+  fs.map(c=>{const r=c.resumo,a=pct(r.endOk,r.escopo),k=accKg(r);
+    return `<tr><td>${dtf(c.fim)}</td><td>${esc(titulo(c))}</td><td>${esc(nome(c.operador))}</td>
+    <td class="num">${r.contadas}/${r.escopo}</td><td class="nw">${barra(a,mE)}${pctf(a)}</td><td class="nw">${barra(k,mK)}${pctf(k)}</td>
+    <td class="num">${kgf(r.kgEsc)}</td><td class="num">${kgf(r.kgCerto)}</td><td class="num">${kgf((r.kgEsc||0)+(r.kgFora||0)-(r.kgCerto||0))}</td>
+    <td>${divTxt(r)?esc(divTxt(r)):'<span class="chip ok">Sem divergência</span>'}</td></tr>`}).join('')+'</tbody></table>';
+}
+const divTxt=r=>[[r.nEnd,'endereço'],[r.nKg,'peso'],[r.nNao,'não encontrada'],[r.nSobra,'sem saldo']].filter(x=>x[0]).map(x=>x[0]+' '+x[1]).join(', ');
+
+/* ---------- armazém ---------- */
+function ultimas(){const m={};finalizadas().forEach(c=>Object.entries(c.itens||{}).forEach(([ua,i])=>{if(!m[ua]||i.hora>m[ua])m[ua]=i.hora}));return m}
+const dias=s=>Math.max(0,Math.floor((Date.now()-new Date(s).getTime())/864e5));
+const diasTxt=s=>s?(dias(s)===0?'hoje':'há '+dias(s)+' dia'+(dias(s)>1?'s':'')):'nunca';
+function renderAz(){
+  const ult=ultimas(),all=Object.values(estoque),m={};
+  all.forEach(e=>{const b=baiaDe(e.endereco),x=m[b]||(m[b]={b,ends:new Set(),n:0,kg:0,nunca:0,velha:null});
+    x.ends.add(e.endereco);x.n++;x.kg+=Number(e.kg)||0;const u=ult[e.ua];if(!u)x.nunca++;else if(!x.velha||u<x.velha)x.velha=u});
+  const bs=Object.values(m).sort((a,b)=>a.b.localeCompare(b.b));
+  $('azBaia').innerHTML=bs.length?'<table><thead><tr><th>Baia</th><th class="num">Endereços ocupados</th><th class="num">UAs</th><th class="num">Kg</th><th>Contagem mais antiga</th><th class="num">UAs nunca contadas</th><th></th></tr></thead><tbody>'+
+    bs.map(x=>{const d=x.velha?dias(x.velha):null,al=x.nunca?['Há UA sem contagem','crit']:d>30?['Mais de 30 dias','warn']:['Em dia','ok'];
+      return `<tr><td><b>${esc(x.b)}</b></td><td class="num">${x.ends.size}</td><td class="num">${x.n}</td><td class="num">${kgf(x.kg)}</td><td>${x.velha?diasTxt(x.velha):'—'}</td><td class="num">${x.nunca}</td><td><span class="chip ${al[1]}">${al[0]}</span></td></tr>`}).join('')+'</tbody></table>'
+    :`<p class="empty">${ready?'Nenhuma posição carregada.':'Carregando…'}</p>`;
+  const q=limpa($('posBusca').value);
+  const l=all.filter(e=>!q||[e.ua,e.lote,e.endereco].some(v=>String(v).toUpperCase().includes(q))).sort((a,b)=>String(a.endereco).localeCompare(b.endereco));
+  if(!l.length){$('posLista').innerHTML=`<p class="empty">${!ready?'Carregando…':all.length?'Nada encontrado para essa busca.':'Nenhuma posição carregada. O estoque do sistema aparece aqui.'}</p>`;return}
+  $('posLista').innerHTML='<table><thead><tr><th>Endereço</th><th>UA</th><th>Produto</th><th>Lote</th><th class="num">Kg</th><th>Última contagem</th></tr></thead><tbody>'+
+    l.map(e=>`<tr><td>${addr(e.endereco)}</td><td class="ua">${esc(e.ua)}</td><td>${esc(e.descricao)}</td><td>${esc(e.lote)}</td><td class="num">${kgf(e.kg)}</td><td>${ult[e.ua]?diaf(ult[e.ua])+' <span class="sub">'+diasTxt(ult[e.ua])+'</span>':'<span class="chip crit">Nunca</span>'}</td></tr>`).join('')+'</tbody></table>';
+}
+
+/* ---------- exportar ---------- */
+async function exportar(){
+  if(!dl||typeof XLSX==='undefined') return;
+  const ult=ultimas(),og=orgPorBaia(),wb=XLSX.utils.book_new(),add=(n,rows)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.length?rows:[{Aviso:'Sem dados'}]),n);
+  add('Contagens',finalizadas().map(c=>{const r=c.resumo;return{Data:dtf(c.fim),Contagem:titulo(c),Operador:nome(c.operador),'UAs contadas':r.contadas,'UAs do recorte':r.escopo,
+    'UAs no sistema':r.esperadas??'','Acuracidade por UA %':pct(r.endOk,r.escopo),'Acuracidade por kg %':accKg(r),'Kg sistema':r.kgEsc??'','Kg certo':r.kgCerto??'','Kg não encontrado':r.kgFalta??'','Kg de outro endereço':r.kgFora??'',
+    'Div. endereço':r.nEnd,'Div. peso':r.nKg,'Não encontradas':r.nNao,'Sem saldo':r.nSobra}}));
+  add('Divergências',Object.values(ajustes).sort((a,b)=>a.criado.localeCompare(b.criado)).map(a=>({Criada:dtf(a.criado),UA:a.ua,Tipo:(TIPO[a.tipo]||[a.tipo])[0],Produto:prodDe(a),
+    Sistema:a.sist??'','Físico':a.fis??'','Dif kg':a.tipo==='kg'?a.fis-a.sist:'',Situação:{pendente:'Pendente',recontar:'Aguardando recontagem',confirmada:'Confirmada na recontagem',ajustado:'Ajustado',sem_divergencia:'Sem divergência na recontagem'}[a.status]||a.status,
+    Motivo:a.motivo||'','Resolvida por':a.por||a.recPor?nome(a.por||a.recPor):'','Resolvida em':dtf(a.em)})));
+  add('Por baia',agrega(d=>d.baia).sort((a,b)=>a.k.localeCompare(b.k)).map(x=>{const o=og[x.k];return{Baia:x.k,UAs:x.n,'Acuracidade por UA %':pct(x.endOk,x.n),'Acuracidade por kg %':pct(x.ksOk,x.ks),'Kg auditado':x.ks,'Kg divergente':x.ks-x.ksOk,'UAs sem saldo':x.sem,'Organização %':o?pct(o.t-o.p,o.t):''}}));
+  add('Por produto',agrega(d=>d.prod).map(x=>({Produto:x.k,Descrição:prodDesc(x.k),UAs:x.n,'Acuracidade endereço %':pct(x.endOk,x.n),'Acuracidade peso %':pct(x.kgOk,x.kgN),'Dif kg':x.dk,'Impacto kg':x.adk})));
+  add('Posições',Object.values(estoque).sort((a,b)=>String(a.endereco).localeCompare(b.endereco)).map(e=>({Endereço:e.endereco,UA:e.ua,Produto:e.produto,Descrição:e.descricao,Lote:e.lote,Kg:e.kg,'Última contagem':ult[e.ua]?dtf(ult[e.ua]):'Nunca','Dias sem contagem':ult[e.ua]?dias(ult[e.ua]):''})));
+  try{await dl.save({filename:'inventario-'+iso().slice(0,10)+'.xlsx',data:XLSX.write(wb,{type:'array',bookType:'xlsx'})});toast('Planilha salva.')}
+  catch(e){if(!e||e.code!=='declined')toast('Não foi possível exportar agora.')}
+}
+
+/* ---------- interface ---------- */
+function renderTudo(){renderNova();renderCont();renderRec();renderPlano();renderAj();renderCfg();renderAc();renderAz()}
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,3500)}
+const TABS=['contar','plano','ajustes','acuracidade','armazem'];
+const TIT={contar:['Contar','Contagem e recontagem no coletor'],plano:['Plano','Pré-inventário e mapa de cobertura'],ajustes:['Ajustes','Divergências entre físico e sistema'],acuracidade:['Acuracidade','Indicadores, metas e evolução'],armazem:['Armazém','Ocupação e dias sem contagem']};
+function abre(tab){
+  if(!TABS.includes(tab)) tab='contar';
+  TABS.forEach(t=>{$('tab-'+t).hidden=t!==tab});
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));
+  $('pgTit').textContent=TIT[tab][0];$('pgSub').textContent=TIT[tab][1];
+  try{localStorage.setItem('inv-tab',tab)}catch(e){}
+}
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button');if(!b)return;const d=b.dataset;
+  if(d.tab)abre(d.tab);
+  else if(d.go)abre(d.go);
+  else if(d.novo){ultimo=null;renderCont();renderNova();$('novoEnd').focus()}
+  else if(b.parentElement.id==='ajTipo'){ajT=d.t||'';renderAj()}
+  else if(d.por){por=d.por;renderNova()}
+  else if(d.f){ajF=d.f;renderAj()}
+  else if(d.rm&&cur){delete cur.itens[d.rm];putContagem(cur);renderCont()}
+  else if(d.prob&&cur){const e=limpa($('inEnd').value);if(!e)return;cur.org=cur.org||{};const s=new Set(cur.org[e]||[]);s.has(d.prob)?s.delete(d.prob):s.add(d.prob);
+    if(s.size)cur.org[e]=[...s];else delete cur.org[e];putContagem(cur);renderOrg()}
+  else if(d.rec){reconId=d.rec;renderRec();const a=ajustes[reconId];(a&&a.tipo==='kg'?$('rcKg'):$('rcEnd')).focus()}
+  else if(d.aj){ajustar(d.aj);renderAj();renderAz();renderAc();renderPlano();toast('Registrado.')}
+  else if(d.rc){const a=ajustes[d.rc];if(a&&a.status==='pendente'){a.status='recontar';sel.delete(a.id);putAjuste(a);renderAj();renderRec();renderPlano();toast('Enviada para recontagem na aba Contar.')}}
+});
+document.addEventListener('change',ev=>{const c=ev.target,d=c.dataset||{};
+  if(d.sel){c.checked?sel.add(d.sel):sel.delete(d.sel);renderAj()}
+  else if(d.mot){const a=ajustes[d.mot];if(a){a.motivo=c.value;putAjuste(a)}}
+});
+$('acChart').addEventListener('pointerover',ev=>{const r=ev.target.closest('.hit');if(r)tipOn(r)});
+$('acChart').addEventListener('focusin',ev=>{const r=ev.target.closest('.hit');if(r)tipOn(r)});
+$('acChart').addEventListener('pointerleave',tipOff);$('acChart').addEventListener('focusout',tipOff);
+$('btnIniciar').onclick=iniciar;
+$('novoEnd').addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();iniciar()}});
+/* leitor do coletor: digita o código no campo como um teclado, com ou sem Enter no final */
+$('btnTec').onclick=()=>{const so=$('inUa').getAttribute('inputmode')==='none';$('inUa').setAttribute('inputmode',so?'text':'none');$('btnTec').textContent=so?'Usar só o leitor':'Digitar a UA no teclado';$('inUa').blur();$('inUa').focus()};
+let bipT=null,bipIni=0,bipPrev=0;
+$('inUa').addEventListener('input',()=>{const v=$('inUa').value;if(bipPrev===0)bipIni=Date.now();bipPrev=v.length;clearTimeout(bipT);
+  bipT=setTimeout(()=>{const x=$('inUa').value;bipPrev=x.length;if(cur&&x.length>=4&&Date.now()-bipIni<x.length*60+300){$('confKg').checked?$('inKg').focus():registrar()}},300)});
+document.addEventListener('keydown',ev=>{if(!cur||$('tab-contar').hidden||reconId||ev.ctrlKey||ev.metaKey||ev.altKey||ev.key.length!==1)return;
+  const t=document.activeElement;if(t&&/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName))return;$('inUa').focus()});
+document.addEventListener('click',ev=>{if(!cur||$('tab-contar').hidden||ev.target.closest('input,select,textarea,#fimConf,#btnFim,#recBox,#btnTec'))return;
+  setTimeout(()=>{if(cur&&$('fimConf').hidden&&!reconId&&!$('tab-contar').hidden)$('inUa').focus()},0)});
+$('bipForm').addEventListener('submit',ev=>{ev.preventDefault();registrar()});
+$('inEnd').addEventListener('input',renderOrg);
+$('inEnd').addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();$('inUa').focus()}});
+$('inUa').addEventListener('keydown',ev=>{if(ev.key==='Enter'&&$('confKg').checked){ev.preventDefault();$('inKg').focus()}});
+$('confKg').onchange=()=>{$('kgLbl').hidden=!$('confKg').checked};
+$('btnVazio').onclick=()=>{const e=limpa($('inEnd').value);if(!e||!cur)return;cur.vazios=cur.vazios||{};
+  if(cur.vazios[e])delete cur.vazios[e];
+  else if(Object.values(cur.itens).some(i=>i.endereco===e)){toast('Este endereço já tem UA registrada nesta contagem.');return}
+  else cur.vazios[e]=true;
+  putContagem(cur);renderCont()};
+$('btnFim').onclick=()=>{if(!Object.keys(cur.itens).length&&!Object.keys(cur.vazios||{}).length){toast('Registre ao menos uma UA ou um endereço vazio antes de finalizar.');return}$('fimConf').hidden=false};
+$('btnFimNao').onclick=()=>{$('fimConf').hidden=true};
+$('btnFimSim').onclick=async()=>{const b=$('btnFimSim');
+  if(window.__sincSaldo){b.disabled=true;b.textContent='Consultando saldo…';
+    try{aplicaSaldo(await window.__sincSaldo([...visitados(cur)],Object.keys(cur.itens)))}
+    catch(e){toast(e.message||'Não foi possível consultar o saldo no WMS.');b.disabled=false;b.textContent='Sim, finalizar';return}
+    b.disabled=false;b.textContent='Sim, finalizar'}
+  finalizar()};
+$('btnCancela').onclick=()=>{const id=cur.id;delete contagens[id];apaga('contagens',id);cur=null;$('fimConf').hidden=true;renderCont();renderNova();toast('Contagem cancelada.')};
+$('recForm').addEventListener('submit',ev=>{ev.preventDefault();gravaRecont()});
+$('rcVolta').onclick=()=>{reconId=null;renderRec()};
+$('btnLote').onclick=()=>{$('loteTxt').textContent=`Gravar no sistema o físico de ${sel.size} UA${sel.size>1?'s':''}?`;$('loteConf').hidden=false};
+$('btnLoteNao').onclick=()=>{$('loteConf').hidden=true};
+$('btnLoteSim').onclick=()=>{const n=sel.size;[...sel].forEach(ajustar);$('loteConf').hidden=true;renderAj();renderAz();renderAc();renderPlano();toast(n+' ajuste'+(n>1?'s':'')+' gravado'+(n>1?'s':'')+'.')};
+$('btnPlCria').onclick=criaPlano;
+$('btnPlNovo').onclick=()=>{$('plConf').hidden=false};
+$('btnPlNao').onclick=()=>{$('plConf').hidden=true};
+$('btnPlSim').onclick=()=>{plano=null;plSig='';apaga('planos','ativo');$('plConf').hidden=true;renderPlano()};
+$('btnCfg').onclick=()=>{const a=numIn($('cfMetaEnd').value),b=numIn($('cfMetaKg').value),c=numIn($('cfTol').value);
+  if([a,b,c].some(v=>v===null||isNaN(v)||v>100)){toast('Use números de 0 a 100.');return}
+  cfg={metaEnd:a,metaKg:b,tol:c};grava('config','geral',cfg);renderAc();toast('Metas salvas. A tolerância vale para as próximas contagens.')};
+$('btnXls').onclick=exportar;
+$('posBusca').addEventListener('input',renderAz);
+let ini=(location.hash||'').slice(1);try{ini=ini||localStorage.getItem('inv-tab')||''}catch(e){}
+abre(ini);renderTudo();boot();
+</script>
+<script>
+(function(){
+  const $=id=>document.getElementById(id),msg=t=>{$('wmsMsg').textContent=t},I=window.__inv;
+  const ler=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v}catch(e){return d}},por=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+  const PAD={url:'https://mlwhom.zionlogtec.com.br:8080/api/integrator-api-docs',est:'1',dep:'68102011000540'};
+  let cfg=Object.assign({},PAD);try{Object.assign(cfg,JSON.parse(ler('inv-cfg','{}')))}catch(e){}
+  let chave=ler('inv-chave',''),prods={};try{prods=JSON.parse(ler('inv-prod','{}'))}catch(e){}
+  const LIM=200,limpa=v=>String(v==null?'':v).toUpperCase().replace(/[^A-Z0-9_-]/g,'');
+  async function chamar(caminho,params,k){
+    k=k||chave;if(!k)throw new Error('Informe a chave de acesso do WMS na aba Armazém.');
+    const u=new URL(cfg.url.replace(/\/+$/,'')+'/'+caminho);Object.entries(params||{}).forEach(([a,b])=>u.searchParams.set(a,b));
+    let r;try{r=await fetch(u,{headers:{Authorization:k,'Accept-Language':'pt-BR'}})}catch(e){throw new Error('Não foi possível falar com o WMS. Confira a internet deste aparelho.')}
+    if(r.status===401)throw new Error('O WMS recusou a chave de acesso (erro 401). Confira a chave e o endereço da API.');
+    if(r.status===404)return null;if(!r.ok)throw new Error('O WMS respondeu com erro '+r.status+'.');
+    return r.json().catch(()=>null);
+  }
+  const lista=d=>Array.isArray(d)?d:(d&&typeof d==='object'?(Object.values(d).find(Array.isArray)||[]):[]);
+  async function detalhe(filtro,maxPag,k){const out=[];
+    for(let p=0;p<maxPag;p++){const l=lista(await chamar('estoque/detalhe/'+encodeURIComponent(cfg.est)+'/'+encodeURIComponent(cfg.dep),Object.assign({},filtro,{limit:LIM,offset:p*LIM}),k));out.push(...l);if(l.length<LIM)break}
+    return out}
+  async function descricao(p){if(!p)return'';if(p in prods)return prods[p];
+    try{let d=await chamar('produto/'+encodeURIComponent(cfg.dep)+'/'+encodeURIComponent(p));if(Array.isArray(d))d=d[0];prods[p]=String((d&&d.descricaoProduto)||'');por('inv-prod',JSON.stringify(prods));return prods[p]}catch(e){return''}}
+  async function junta(linhas,ach){for(const it of linhas){const ua=limpa(it.codigoUa);if(!ua||ua==='0')continue;const q=Number(it.quantidadeAtual)||0;
+    if(ach[ua]){ach[ua].kg+=q;ach[ua].itens++;continue}
+    const p=String(it.codigoProduto||'');ach[ua]={ua,endereco:limpa(it.etiquetaEndereco),produto:p,descricao:await descricao(p),lote:String(it.loteFabricacao||it.loteGeral||''),kg:q,unidade:String(it.tipoUc||''),itens:1}}}
+  window.__sincSaldo=async(enderecos,uas)=>{
+    if(!chave)return null;const ach={},ends=enderecos.map(limpa).filter(Boolean);
+    for(const e of ends)await junta(await detalhe({etiquetaEndereco:e},20),ach);
+    for(const u of uas.map(limpa))if(u&&!ach[u]&&/^\d+$/.test(u))await junta(await detalhe({codigoUa:u},5),ach);
+    const est=I.cols.estoque=I.cols.estoque||{},removidas=Object.keys(est).filter(k=>ends.includes(est[k].endereco)&&!ach[k]);
+    removidas.forEach(k=>delete est[k]);Object.assign(est,ach);try{I.grava()}catch(e){}
+    return {docs:ach,removidas};
+  };
+  function status(){
+    window.__saldoAoVivo=!!chave;let host='';try{host=new URL(cfg.url).hostname}catch(e){}
+    $('wmsSt').textContent=chave?'Ligado a '+host:'Sem chave de acesso';$('wmsSt').className='chip '+(chave?'ok':'off');
+    $('wmsLogin').hidden=!!chave;$('wmsImp').hidden=!chave;
+    $('cfUrl').value=cfg.url;$('cfEst').value=cfg.est;$('cfDep').value=cfg.dep;
+  }
+  $('wmsSalvar').onclick=async()=>{const k=$('wmsChave').value.trim();if(!k){msg('Cole a chave de acesso.');return}
+    $('wmsSalvar').disabled=true;msg('Testando a chave no WMS…');
+    try{await detalhe({},1,k);chave=k;por('inv-chave',k);$('wmsChave').value='';msg('Chave aceita. O app passa a consultar o saldo no WMS a cada bipagem.')}catch(e){msg(e.message)}
+    $('wmsSalvar').disabled=false;status()};
+  $('wmsTrocar').onclick=()=>{chave='';try{localStorage.removeItem('inv-chave')}catch(e){}msg('Chave removida deste aparelho.');status()};
+  $('wmsCarregar').onclick=async()=>{$('wmsCarregar').disabled=true;msg('Buscando o estoque completo no WMS… pode levar alguns minutos.');
+    try{const l=await detalhe({},200),ach={};await junta(l,ach);I.cols.estoque=ach;I.grava();I.fire('estoque');msg('Carregado: '+Object.keys(ach).length+' UAs em '+l.length+' linhas de saldo.')}
+    catch(e){msg(e.code==='quota_exceeded'?'O estoque é grande demais para guardar neste aparelho. Use a consulta por endereço.':e.message)}
+    $('wmsCarregar').disabled=false};
+  $('cfSalvar').onclick=()=>{const u=$('cfUrl').value.trim(),e=$('cfEst').value.trim(),d=$('cfDep').value.trim();
+    try{new URL(u)}catch(x){msg('Endereço da API inválido.');return}
+    if(!e||!d){msg('Informe estabelecimento e depositante.');return}
+    cfg={url:u,est:e,dep:d};por('inv-cfg',JSON.stringify(cfg));msg('Servidor salvo neste aparelho.');status()};
+  $('opNome').value=ler('inv-operador','');
+  $('opSalvar').onclick=()=>{por('inv-operador',$('opNome').value.trim());location.reload()};
+  status();
+})();
+</script>
+
+</body></html>
