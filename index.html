@@ -1302,9 +1302,9 @@ function renderAz(){
 let admOk=false;
 async function renderAdm(){
   const A=window.__admin;$('tabCfg').hidden=!A;if(!A)return;
-  let tem=false;try{tem=await A.tem()}catch(e){}
+  let tem=true;try{tem=await A.tem()}catch(e){}
   $('admBox').hidden=admOk;$('admArea').hidden=!admOk;$('admL2').hidden=tem;$('admOk').textContent=tem?'Entrar':'Criar senha';
-  $('admTxt').textContent=tem?'A ligação com o WMS e a chave de acesso ficam protegidas. Digite a senha do administrador.':'Crie a senha do administrador. Só quem souber essa senha poderá ver esta tela e trocar a chave de acesso do WMS.';
+  $('admTxt').textContent=tem?'A ligação com o WMS e a chave de acesso ficam protegidas. Digite a senha do administrador. É a mesma em todos os aparelhos.':'Crie a senha do administrador. Ela é única: vale para todos os aparelhos e só pode ser criada uma vez. Só quem souber essa senha poderá ver esta tela e trocar a chave de acesso do WMS.';
 }
 async function entraAdm(){
   const A=window.__admin,s=$('admS1').value;if(!A)return;
@@ -1490,8 +1490,17 @@ abre(ini);renderTudo();boot();
     await chamar('mobile-movimentacao-ua/movimentar',null,null,'PUT',[{fromRecipient:ua,fromLocationLabel:origem,toLocationLabel:destino,depositorCode:cfg.dep,fromRecipientType:tipo,fromRecipientTypeDescription:desc,equipmentId:ler('inv-equip','').trim(),user:usuario,startDate:dataJava(),complement01:String(cfg.est)}]);
     return {ok:true};
   };
-  const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('inv|'+t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
-  window.__admin={tem:async()=>!!ler('inv-admin',''),criar:async s=>{por('inv-admin',await sha(s))},entrar:async s=>ler('inv-admin','')===await sha(s)};
+  /* senha unica do administrador: o resumo (PBKDF2) fica no banco compartilhado e vale em todos os aparelhos */
+  const ADM='https://auditoria-armazem-icc-default-rtdb.firebaseio.com/adm.json',hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  const pbk=async(t,sal)=>{const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(t),'PBKDF2',false,['deriveBits']);return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode('inv|'+sal),iterations:250000},k,256))};
+  async function admRemoto(){
+    try{const r=await fetch(ADM,{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();if(j&&j.h&&j.s){por('inv-adm2',JSON.stringify(j));return j}try{localStorage.removeItem('inv-adm2')}catch(e){}return null}
+    catch(e){const c=ler('inv-adm2','');if(c)return JSON.parse(c);throw new Error('Sem internet para conferir a senha do administrador.')}}
+  window.__admin={tem:async()=>!!(await admRemoto()),
+    criar:async t=>{if(String(t).length<8)throw new Error('Use uma senha com pelo menos 8 caracteres.');if(await admRemoto())throw new Error('A senha do administrador já foi criada em outro aparelho.');
+      const sal=hex(crypto.getRandomValues(new Uint8Array(12))),d={h:await pbk(t,sal),s:sal},r=await fetch(ADM,{method:'PUT',body:JSON.stringify(d)});
+      if(!r.ok)throw new Error('O banco não aceitou gravar a senha. Talvez ela já tenha sido criada em outro aparelho.');por('inv-adm2',JSON.stringify(d))},
+    entrar:async t=>{const j=await admRemoto();return !!j&&j.h===await pbk(t,j.s)}};
   function status(){
     window.__saldoAoVivo=!!chave;let host='';try{host=new URL(cfg.url).hostname}catch(e){}
     $('wmsSt').textContent=chave?'Ligado a '+host:'Sem chave de acesso';$('wmsSt').className='chip '+(chave?'ok':'off');
