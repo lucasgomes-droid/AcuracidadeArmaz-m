@@ -343,6 +343,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       <button class="btn small" type="button" id="btnLoteSim">Confirmar</button>
       <button class="btn ghost small" type="button" id="btnLoteNao">Voltar</button>
     </div>
+    <div class="notice" id="ajErro" hidden style="align-items:flex-start"><span class="grow" id="ajErroTxt" style="white-space:pre-wrap;word-break:break-word;user-select:text"></span><button class="btn ghost small" type="button" id="ajErroX">Fechar</button></div>
     <div class="panel"><div class="scroll" id="ajLista"></div></div>
   </section>
 
@@ -479,6 +480,8 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
         </div></details>
       <div class="row"><label style="flex:0 1 260px">Usuário do MLW para movimentações<input type="text" id="wmsUsuario" placeholder="ex.: lucas.gomes" autocapitalize="none"></label>
         <button class="btn ghost" type="button" id="wmsUsuSalvar">Salvar usuário</button></div>
+      <div class="row"><label style="flex:0 1 260px">Código do equipamento (coletor) no MLW<input type="text" id="wmsEquip" inputmode="numeric" placeholder="ex.: 1547"></label>
+        <button class="btn ghost" type="button" id="wmsEquipSalvar">Salvar equipamento</button></div>
       <div class="row"><label style="flex:0 1 260px">Seu nome neste aparelho<input type="text" id="opNome" placeholder="Ex.: Lucas"></label>
         <button class="btn ghost" type="button" id="opSalvar">Salvar nome</button></div>
     </div>
@@ -862,7 +865,7 @@ async function ajustar(id){
     if(!s0){toast('A UA '+a.ua+' não tem saldo no WMS. Não há o que movimentar.');return false}
     if(!window.__moverUa){toast('Esta versão não movimenta no WMS.');return false}
     const de=s0.endereco;
-    try{await window.__moverUa(a.ua,de,a.fis)}catch(e){toast(e.message||'O WMS não aceitou a movimentação.');return false}
+    try{await window.__moverUa(a.ua,de,a.fis)}catch(e){const m=e.message||'O WMS não aceitou a movimentação.';$('ajErroTxt').textContent='UA '+a.ua+' ('+de+' para '+a.fis+') não foi movimentada. '+m;$('ajErro').hidden=false;toast('O WMS não aceitou a movimentação. Veja o detalhe na tela.');return false}
     await sinc([],[a.ua]);s0=estoque[a.ua];
     if(s0&&s0.endereco===a.fis){a.de=de;return fecha(true)}
     toast('O WMS recebeu o pedido, mas a UA '+a.ua+' ainda aparece em '+(s0?s0.endereco:'nenhum endereço')+'. Confira de novo em instantes.');return false}
@@ -1416,6 +1419,7 @@ $('rcVolta').onclick=()=>{reconId=null;renderRec()};
 $('btnLote').onclick=()=>{const l=[...sel].map(i=>ajustes[i]).filter(Boolean);
   $('loteTxt').textContent=aoVivo()?(l.length===1&&l[0].tipo==='end'?`Movimentar a UA ${l[0].ua} no WMS para ${l[0].fis}? Isso altera o estoque real.`:`Movimentar ${l.length} UAs no WMS para o endereço físico de cada uma? Isso altera o estoque real.`):`Gravar no sistema o físico de ${sel.size} UA${sel.size>1?'s':''}?`;
   $('loteConf').hidden=false;$('loteConf').scrollIntoView({block:'center'})};
+$('ajErroX').onclick=()=>{$('ajErro').hidden=true};
 $('btnLoteNao').onclick=()=>{$('loteConf').hidden=true};
 $('btnLoteSim').onclick=async()=>{const b=$('btnLoteSim');b.disabled=true;const rs=[];for(const i of [...sel])rs.push(await ajustar(i));b.disabled=false;const n=rs.filter(r=>r!==false).length;$('loteConf').hidden=true;renderAj();renderAz();renderAc();if(n||rs.length>1)toast(n+' de '+rs.length+(n===1?' tratada.':' tratadas.'))};
 $('btnCfg').onclick=()=>{const a=numIn($('cfMetaEnd').value),b=numIn($('cfMetaKg').value),g=numIn($('cfMetaGeral').value),c=numIn($('cfTol').value);
@@ -1448,7 +1452,7 @@ abre(ini);renderTudo();boot();
     const cab={Authorization:k,'Accept-Language':'pt-BR'};if(corpo)cab['Content-Type']='application/json';
     let r;try{r=await fetch(u,{method:metodo||'GET',headers:cab,body:corpo?JSON.stringify(corpo):undefined})}catch(e){throw new Error('Não foi possível falar com o WMS. Confira a internet deste aparelho.')}
     if(r.status===401)throw new Error('O WMS recusou a chave de acesso (erro 401). Confira a chave e o endereço da API.');
-    if(r.status===404)return null;if(!r.ok){let d='';try{const j=await r.json();d=String(j.message||j.detail||j.title||'').slice(0,200)}catch(e){}throw new Error('O WMS respondeu com erro '+r.status+(d?': '+d:'.'))}
+    if(r.status===404)return null;if(!r.ok){let d='';try{const j=await r.json();d=String(j.message||j.detail||j.title||'').slice(0,1500)}catch(e){}throw new Error('O WMS respondeu com erro '+r.status+' em '+caminho.split('/').slice(0,3).join('/')+(d?': '+d:'.'))}
     return r.json().catch(()=>null);
   }
   const lista=d=>Array.isArray(d)?d:(d&&typeof d==='object'?(Object.values(d).find(Array.isArray)||[]):[]);
@@ -1483,7 +1487,7 @@ abre(ini);renderTudo();boot();
     let cad=await chamar('ua/'+E(cfg.est)+'/'+E(ua))||{};if(Array.isArray(cad))cad=cad[0]||{};
     const tipo=String(cad.tipoUa||'');let desc='';
     if(tipo){try{let t=await chamar('tipo-ua/'+E(tipo))||{};if(Array.isArray(t))t=t[0]||{};const k=Object.keys(t).find(x=>/descricao/i.test(x)&&t[x]);desc=k?String(t[k]):''}catch(e){}}
-    await chamar('mobile-movimentacao-ua/movimentar',null,null,'PUT',[{fromRecipient:ua,fromLocationLabel:origem,toLocationLabel:destino,depositorCode:cfg.dep,fromRecipientType:tipo,fromRecipientTypeDescription:desc,equipmentId:'',user:usuario,startDate:dataJava(),complement01:String(cfg.est)}]);
+    await chamar('mobile-movimentacao-ua/movimentar',null,null,'PUT',[{fromRecipient:ua,fromLocationLabel:origem,toLocationLabel:destino,depositorCode:cfg.dep,fromRecipientType:tipo,fromRecipientTypeDescription:desc,equipmentId:ler('inv-equip','').trim(),user:usuario,startDate:dataJava(),complement01:String(cfg.est)}]);
     return {ok:true};
   };
   const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('inv|'+t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -1507,7 +1511,8 @@ abre(ini);renderTudo();boot();
     try{new URL(u)}catch(x){msg('Endereço da API inválido.');return}
     if(!e||!d){msg('Informe estabelecimento e depositante.');return}
     cfg={url:u,est:e,dep:d};por('inv-cfg',JSON.stringify(cfg));msg('Servidor salvo neste aparelho.');status()};
-  $('wmsUsuario').value=ler('inv-usuario-wms','');
+  $('wmsUsuario').value=ler('inv-usuario-wms','');$('wmsEquip').value=ler('inv-equip','');
+  $('wmsEquipSalvar').onclick=()=>{por('inv-equip',$('wmsEquip').value.trim());msg('Equipamento salvo neste aparelho.')};
   $('wmsUsuSalvar').onclick=()=>{por('inv-usuario-wms',$('wmsUsuario').value.trim());msg('Usuário salvo neste aparelho.')};
   $('opNome').value=ler('inv-operador','');
   $('opSalvar').onclick=()=>{por('inv-operador',$('opNome').value.trim());location.reload()};
