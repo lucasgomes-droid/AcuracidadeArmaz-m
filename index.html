@@ -792,7 +792,7 @@ async function buscaLote(id){
   semRes[id]=r;renderAj();
 }
 const motSel=a=>`<select class="sm" aria-label="Motivo de ${esc(a.ua)}" data-mot="${esc(a.id)}"><option value="">Sem motivo</option>${MOTIVOS.map(m=>`<option ${a.motivo===m?'selected':''}>${m}</option>`).join('')}</select>`;
-const feitoChip=a=>{const lab=a.status==='sem_divergencia'?'Sem divergência na recontagem':a.movido?'Movimentada no WMS':auto(a)?'Ajustado':'Encerrada';
+const feitoChip=a=>{const lab=a.status==='sem_divergencia'?'Sem divergência na recontagem':a.manual?'Ajustada manualmente'+(a.conferido?' · conferida no WMS':''):a.movido?'Movimentada no WMS':auto(a)?'Ajustado':'Encerrada';
   return `<span class="chip ok">${lab}</span> <span class="sub">${esc(nome(a.por||a.recPor))} ${dtf(a.em)}</span>`};
 function semHtml(a,ab){
   const c=contagens[a.contagem],id=esc(a.id),r=semRes[a.id]||{},rec=a.status==='recontar',s=estoque[a.ua];
@@ -846,6 +846,7 @@ function renderAj(){
       mot=rec?'':motSel(a);
       acao=rec?'<span class="chip warn">Aguardando recontagem</span>'
         :(auto(a)?`<button class="btn small" type="button" data-aj="${id}">${vivo?'Movimentar no WMS':'Ajustar'}</button> `:`<button class="btn small" type="button" data-aj="${id}">Encerrar</button> `)
+         +(mov?`<button class="btn ghost small" type="button" data-man="${id}">Feito manual</button> `:'')
          +(a.status==='pendente'?`<button class="btn ghost small" type="button" data-rc="${id}">Recontar</button>`:'<span class="chip off">Recontada</span>');
     }else{mot=esc(a.motivo||'');acao=feitoChip(a)}
     const d=descAj(a),lt=loteAj(a);
@@ -855,6 +856,21 @@ function renderAj(){
       <td class="num">${kg?'':kgf(kgAj(a))}</td><td>${sis}</td><td>${fis}</td>
       ${kg?`<td class="num">${sinal(a.fis-a.sist)} kg</td>`:''}<td>${mot}</td>
       <td class="sub nw">${c?esc(titulo(c))+'<br>'+dtf(c.fim):''}</td><td class="nw">${acao}</td></tr>`}).join('')+'</tbody></table>';
+}
+
+/* ajuste feito fora do app (no coletor ou no MLW): confere no WMS e tira da lista */
+const manAviso={};
+async function ajusteManual(id){
+  const a=ajustes[id];if(!a||!aberto(a)||a.status==='recontar')return;
+  const fecha=conf=>{a.status='ajustado';a.manual=true;a.conferido=!!conf;a.de=a.de||a.sist;a.por=uid||'';a.em=iso();sel.delete(id);putAjuste(a);renderAj();renderAc();renderAz();
+    toast(conf?'UA '+a.ua+' conferida no WMS e marcada como ajustada manualmente.':'UA '+a.ua+' marcada como ajustada manualmente.')};
+  if(!aoVivo()){fecha(false);return}
+  await sinc([],[a.ua]);const s=estoque[a.ua];
+  if(s&&s.endereco===a.fis){fecha(true);return}
+  if(manAviso[id]){fecha(false);return}
+  manAviso[id]=1;
+  $('ajErroTxt').textContent='O WMS ainda mostra a UA '+a.ua+' em '+(s?s.endereco:'nenhum endereço (sem saldo)')+', e não em '+a.fis+'. Se a correção ainda não foi feita no coletor, faça e clique em "Feito manual" de novo. Se quiser tirar da lista mesmo assim, clique em "Feito manual" outra vez.';
+  $('ajErro').hidden=false;
 }
 async function ajustar(id){
   const a=ajustes[id]; if(!a||!aberto(a)||a.status==='recontar') return false;
@@ -1046,7 +1062,7 @@ const divTxt=r=>[[r.nEnd,'endereço'],[r.nKg,'peso'],[r.nNao,'não encontrada'],
 
 /* ---------- relatório em PDF e e-mail ---------- */
 const SIT={pendente:'Em aberto',recontar:'Aguardando recontagem',confirmada:'Confirmada na recontagem',ajustado:'Tratada',sem_divergencia:'Sem divergência na recontagem'};
-const sitAj=a=>a.status==='ajustado'&&a.movido?'Movimentada no WMS':(SIT[a.status]||a.status);
+const sitAj=a=>a.status==='ajustado'&&a.manual?'Tratada manualmente':a.status==='ajustado'&&a.movido?'Movimentada no WMS':(SIT[a.status]||a.status);
 const descAj=a=>a.desc||(estoque[a.ua]?estoque[a.ua].descricao:'')||prodDesc(prodDe(a))||'';
 const loteAj=a=>a.lote||(estoque[a.ua]?estoque[a.ua].lote:'')||'';
 function gerarPdf(D){
@@ -1354,6 +1370,7 @@ document.addEventListener('click',ev=>{
   else if(d.per){acPer=d.per;try{localStorage.setItem('inv-per',acPer)}catch(e){}renderAc()}
   else if(d.mt){cfg.metaTipo=d.mt;grava('config','geral',cfg);renderCfg();renderAc()}
   else if(d.busca){buscaLote(d.busca)}
+  else if(d.man){ajusteManual(d.man)}
   else if(d.vuas){semUas[d.vuas]=!semUas[d.vuas];renderAj()}
   else if(d.reldia){acPer='hoje';acAberta=null;abre('acuracidade');renderAc()}
   else if(d.cp){cpPer=d.cp;renderCp()}
