@@ -23,7 +23,7 @@
 :root{
   --bg:#f3f5f7; --surface:#ffffff; --sunk:#e9edf1; --line:#d6dce3;
   --fg:#141c24; --muted:#5a6876;
-  --accent:#3a6a1c; --on-accent:#ffffff; --accent-soft:#e4f0d9;
+  --accent:#3a6a1c; --on-accent:#ffffff; --accent-soft:#e4f0d9; --accent-ink:#2f5a16;
   --label:#f6c21c; --on-label:#1a1a12;
   --ok:#17764a; --ok-bg:#dff3e7; --warn:#855600; --warn-bg:#fdefc8; --crit:#b3261e; --crit-bg:#fbe1de;
   --s1:#2a78d6; --s2:#eb6834;
@@ -36,7 +36,7 @@
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#0e1319; --surface:#171e26; --sunk:#202a34; --line:#2c3844;
   --fg:#e8edf2; --muted:#98a6b4;
-  --accent:#9bcf6f; --on-accent:#10210a; --accent-soft:#1f3216;
+  --accent:#3f7d23; --on-accent:#ffffff; --accent-soft:#1c2c16; --accent-ink:#a5d67c;
   --label:#e9b70f; --on-label:#1a1a12;
   --ok:#6fd39c; --ok-bg:#173526; --warn:#f0c765; --warn-bg:#3a2e10; --crit:#ff9a92; --crit-bg:#45201d;
   --s1:#3987e5; --s2:#d95926;
@@ -46,7 +46,7 @@
 :root[data-theme="dark"]{
   --bg:#0e1319; --surface:#171e26; --sunk:#202a34; --line:#2c3844;
   --fg:#e8edf2; --muted:#98a6b4;
-  --accent:#9bcf6f; --on-accent:#10210a; --accent-soft:#1f3216;
+  --accent:#3f7d23; --on-accent:#ffffff; --accent-soft:#1c2c16; --accent-ink:#a5d67c;
   --label:#e9b70f; --on-label:#1a1a12;
   --ok:#6fd39c; --ok-bg:#173526; --warn:#f0c765; --warn-bg:#3a2e10; --crit:#ff9a92; --crit-bg:#45201d;
   --s1:#3987e5; --s2:#d95926;
@@ -121,7 +121,7 @@ input.num{width:92px;font-size:16px;padding:8px 10px;min-height:40px}
 input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);flex:none}
 button.btn{font:600 15px var(--body);padding:0 18px;min-height:48px;border:1.5px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;border-radius:8px}
 button.btn:hover{filter:brightness(1.08)}
-button.btn.ghost{background:transparent;color:var(--accent)}
+button.btn.ghost{background:transparent;color:var(--accent-ink);border-color:var(--line)}
 button.btn.ghost:hover{background:var(--accent-soft);filter:none}
 button.btn.danger{border-color:var(--crit);background:transparent;color:var(--crit)}
 button.btn.small{padding:0 12px;min-height:34px;font-size:13px;border-radius:6px}
@@ -230,6 +230,26 @@ b.ok{color:var(--ok)} b.crit{color:var(--crit)}
 .audN{display:flex;flex-direction:column;align-items:flex-end;min-width:70px} .audN b{font:700 22px/1.1 var(--display)}
 .audB{padding:16px 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:14px}
 .audB .stats{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.ajT .cacao{position:sticky;right:0;background:var(--surface);box-shadow:-10px 0 10px -8px var(--line)}
+.ajT tbody tr:hover .cacao{background:var(--accent-soft)}
+.ajT .cacao .btn.ghost{border-color:transparent;padding:0 8px}
+.ajT .cacao .btn.ghost:hover{border-color:var(--line)}
+@media (max-width:760px){
+  .ajT,.ajT tbody{display:block} .ajT thead{display:none}
+  .ajT tr{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+  .ajT tbody tr:last-child{border-bottom:0;padding-bottom:0} .ajT tbody tr:first-child{padding-top:0}
+  .ajT td{display:block;padding:0;border:0;text-align:left;white-space:normal;grid-column:1 / -1}
+  .ajT tbody tr:hover td,.ajT tbody tr:hover .cacao{background:none}
+  .ajT td.csel{grid-column:1;grid-row:1} .ajT td.cua{grid-column:2;grid-row:1;font-size:18px}
+  .ajT tr:not(:has(.csel)) td.cua{grid-column:1 / -1}
+  .ajT td[data-l]{display:flex;gap:10px;align-items:center;justify-content:space-between;font-family:var(--body)}
+  .ajT td[data-l]::before{content:attr(data-l);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .ajT td[data-l]:empty{display:none}
+  .ajT td select.sm{max-width:60%}
+  .ajT .cacao{position:static;box-shadow:none;display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .ajT .cacao .btn{flex:1 1 auto;min-height:44px} .ajT .cacao .btn.ghost{border-color:var(--line)}
+  #ajLista{overflow:visible}
+}
 summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercase;letter-spacing:.04em}
 #toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:11px 18px;font-weight:600;max-width:90vw;border-radius:8px;z-index:5;box-shadow:var(--shadow)}
 </style>
@@ -262,6 +282,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
     <div class="panel" id="sessIni" style="max-width:880px">
       <h2>Auditoria</h2>
       <p class="sub">Inicie a auditoria, faça quantas contagens precisar (por endereço, por lote ou por item) e encerre no fim. Ao encerrar, o app mostra o resumo de tudo que foi auditado.</p>
+      <label id="sessNomeL" hidden style="max-width:320px">Seu nome<input type="text" id="sessNome" placeholder="Ex.: Lucas" autocomplete="off"></label>
       <button class="btn" type="button" id="btnSessIni" style="align-self:flex-start">Iniciar auditoria</button>
     </div>
     <div class="panel row" id="sessBar" hidden style="max-width:880px;align-items:center">
@@ -367,12 +388,6 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       </div>
     </div>
     <div class="minis" id="acHero"></div>
-    <div class="panel"><h2>Posições e baias</h2>
-      <p class="sub">Posição = endereço auditado. Está correta quando todas as UAs dela bateram com o sistema: nenhuma em outro endereço, não encontrada, sem saldo ou com peso divergente. Vale o resultado da auditoria mais recente de cada endereço no período.</p>
-      <div class="minis" id="acPos"></div>
-      <h3>Resultado por baia e porta-palete, da pior para a melhor</h3><div class="scroll" id="acBaiaPos"></div>
-      <h3>Posições incorretas</h3><div class="scroll" id="acPosDiv"></div>
-    </div>
     <div class="panel"><h2 id="acTit">Auditorias</h2><div id="acLista"></div></div>
     <div class="cols">
       <div class="panel"><h2>Divergências por tipo</h2><div id="gTipo"></div></div>
@@ -413,7 +428,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
         <p class="sub" id="mailNota"></p>
       </div>
     </details>
-    <p class="sub">Por UA = UAs no endereço certo ÷ UAs auditadas. Por kg = kg no endereço certo ÷ kg auditado. Geral = média das duas. Cobertura e dias sem auditoria usam os endereços com saldo no estoque carregado neste aparelho (Config. › Carregar estoque completo do WMS); sem essa carga, consideram só os endereços já consultados.</p>
+    <p class="sub">Por UA = UAs no endereço certo ÷ UAs auditadas. Por kg = kg no endereço certo ÷ kg auditado. Geral = média das duas.</p>
   </section>
 
   <!-- COMPARAR -->
@@ -502,16 +517,6 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       </div>
       <button class="btn ghost" type="button" id="nvDesl" style="align-self:flex-start" hidden>Desligar neste aparelho</button>
     </div>
-    <div class="panel" id="zrBox">
-      <h2>Zerar dados das auditorias</h2>
-      <p class="sub">Apaga todas as auditorias, contagens, divergências (aba Ajustes) e o histórico, neste aparelho e no banco compartilhado. Não muda nada no WMS. Continuam como estão: chave do WMS, senha do administrador, metas, e-mails, código da equipe e o estoque carregado. Antes de apagar, o app salva um arquivo de backup neste aparelho. Não dá para desfazer pelo app.</p>
-      <div class="row" style="align-items:flex-end">
-        <label style="flex:0 1 240px">Senha do administrador<input type="password" id="zrSenha" autocomplete="off"></label>
-        <label style="flex:0 1 240px">Digite ZERAR para confirmar<input type="text" id="zrPalavra" autocomplete="off" autocapitalize="characters"></label>
-        <button class="btn ghost" type="button" id="zrOk">Zerar dados</button>
-      </div>
-      <p class="sub" id="zrMsg"></p>
-    </div>
       <button class="btn ghost" type="button" id="admSair" style="align-self:flex-start">Bloquear de novo</button>
     </div>
   </section>
@@ -544,6 +549,8 @@ let estoque={},contagens={},ajustes={},names={},plano=null,cfg={metaEnd:98,metaK
 let cur=null,ultimo=null,por='endereco',ajF='aberto',ajT='',reconId=null,plSig='',pts=[];
 const sel=new Set();
 let sessoes={},sess=null,sessFim=null;
+let DEV='';try{DEV=localStorage.getItem('inv-dev')||''}catch(e){}
+if(!DEV){DEV=Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);try{localStorage.setItem('inv-dev',DEV)}catch(e){}}
 const tol=()=>(Number(cfg.tol)||0)/100;
 const PROB={etq:'Etiqueta ilegível',pal:'Palete avariado',sid:'UA sem identificação',mis:'Produto misturado',blq:'Endereço bloqueado'};
 const MOTIVOS=['Erro de endereçamento','Erro de separação','Avaria','Etiqueta trocada','Erro de pesagem','Outro'];
@@ -568,32 +575,6 @@ function apaga(col,id){ if(db) fila=fila.then(()=>db.collection(col).doc(id).del
 function putEstoque(e){estoque[e.ua]=e;grava('estoque',e.ua,e)}
 function putContagem(c){contagens[c.id]=c;grava('contagens',c.id,c)}
 function putAjuste(a){ajustes[a.id]=a;grava('ajustes',a.id,a)}
-/* zerar dados: config/zerado guarda a geração e a hora. Registro de geração anterior E criado antes dessa hora é apagado em qualquer aparelho. */
-let zer=null;const GER=()=>zer?Number(zer.ger)||0:0;
-const velho=(o,quando)=>!!zer&&(Number(o.ger)||0)<GER()&&String(quando||'')<String(zer.em||'');
-function purga(){
-  if(!zer||!db)return 0;let n=0;
-  Object.values(contagens).forEach(c=>{if(velho(c,c.inicio||c.fim)){delete contagens[c.id];apaga('contagens',c.id);n++}});
-  Object.values(ajustes).forEach(a=>{if(velho(a,a.criado)){delete ajustes[a.id];apaga('ajustes',a.id);n++}});
-  Object.entries(sessoes).forEach(([id,x])=>{if(velho(x,x.inicio)){delete sessoes[id];apaga('sessoes',id);n++}});
-  if(n){if(cur&&!contagens[cur.id])cur=null;if(ultimo&&!contagens[ultimo.id])ultimo=null;if(sess&&!sessoes[sess.id])sess=null;if(sessFim&&!sessoes[sessFim])sessFim=null;sel.clear();reconId=null;acAberta=null}
-  return n;
-}
-async function zerarDados(){
-  const A=window.__admin,s=$('zrSenha').value,b=$('zrOk'),m=t=>{$('zrMsg').textContent=t};
-  if(!db){m('Os dados não estão disponíveis neste aparelho.');return}
-  if($('zrPalavra').value.trim().toUpperCase()!=='ZERAR'){m('Digite ZERAR no segundo campo para confirmar.');return}
-  b.disabled=true;
-  try{if(!A||!(await A.entrar(s))){m('Senha do administrador incorreta.');b.disabled=false;return}}catch(e){m((e&&e.message)||'Não foi possível conferir a senha.');b.disabled=false;return}
-  const n=Object.keys(contagens).length+Object.keys(ajustes).length+Object.keys(sessoes).length;
-  if(dl){try{await dl.save({filename:'backup-auditoria-armazem-'+iso().slice(0,19).replace(/[:T]/g,'-')+'.json',data:JSON.stringify({exportadoEm:iso(),contagens,ajustes,sessoes,config:cfg},null,1)})}
-    catch(e){m('Não foi possível salvar o backup, então nada foi apagado.');b.disabled=false;return}}
-  zer={ger:GER()+1,em:iso(),por:uid||''};grava('config','zerado',zer);
-  purga();await fila;
-  $('zrSenha').value='';$('zrPalavra').value='';b.disabled=false;
-  m('Pronto: '+n+' registros apagados em '+dtf(zer.em)+'. O backup foi salvo na pasta de downloads deste aparelho. Os outros aparelhos se limpam sozinhos ao sincronizar.');
-  renderTudo();toast('Dados zerados.');
-}
 function mapa(snap){const m={};snap.docs.forEach(d=>{m[d.id]=clone(d.data())});return m}
 
 async function boot(){
@@ -607,14 +588,14 @@ async function boot(){
   if(!db){renderTudo();return}
   db.collection('estoque').onSnapshot(s=>{estoque=mapa(s);renderTudo()},falhaDados);
   db.collection('contagens').onSnapshot(s=>{
-    contagens=mapa(s);purga();
-    if(!cur&&uid){const a=Object.values(contagens).find(c=>c.status==='aberta'&&c.operador===uid);if(a)cur=a}
+    contagens=mapa(s);
+    if(!cur){const a=Object.values(contagens).find(c=>c.status==='aberta'&&(c.dev?c.dev===DEV:!!uid&&c.operador===uid));if(a)cur=a}
     resolveNomes();renderCont();renderPlano();renderAj();renderAc();renderAz();
   },falhaDados);
-  db.collection('ajustes').onSnapshot(s=>{ajustes=mapa(s);purga();renderRec();renderPlano();renderAj();renderAc()},falhaDados);
-  db.collection('sessoes').onSnapshot(s=>{sessoes=mapa(s);purga();achaSess();renderCont();renderNova()},falhaDados);
+  db.collection('ajustes').onSnapshot(s=>{ajustes=mapa(s);renderRec();renderPlano();renderAj();renderAc()},falhaDados);
+  db.collection('sessoes').onSnapshot(s=>{sessoes=mapa(s);achaSess();renderCont();renderNova()},falhaDados);
   db.collection('planos').onSnapshot(s=>{plano=mapa(s).ativo||null;renderPlano()},falhaDados);
-  db.collection('config').onSnapshot(s=>{const mc=mapa(s),g=mc.geral;if(g)cfg=Object.assign({metaEnd:98,metaKg:98,metaGeral:98,tol:1,metaTipo:'ua',emails:''},g);const z=mc.zerado||null;if(z&&(!zer||Number(z.ger)>=GER()))zer=z;renderCfg();if(purga())renderTudo();else renderAc()},falhaDados);
+  db.collection('config').onSnapshot(s=>{const g=mapa(s).geral;if(g)cfg=Object.assign({metaEnd:98,metaKg:98,metaGeral:98,tol:1,metaTipo:'ua',emails:''},g);renderCfg();renderAc()},falhaDados);
   renderTudo();
 }
 async function resolveNomes(){
@@ -707,7 +688,7 @@ async function iniciar(){
     b.disabled=false;b.textContent='Iniciar';
     if(!escopo({por,valor,itens:{}}).length){toast('Nenhuma UA com saldo para '+(por==='lote'?'o lote ':'o item ')+valor+'.');return}
   }
-  cur={id:'c'+Date.now().toString(36),por,valor,sessao:sess?sess.id:'',operador:uid||'',inicio:iso(),ger:GER(),status:'aberta',itens:{},org:{},vazios:{}};
+  cur={id:'c'+Date.now().toString(36)+DEV.slice(0,4),dev:DEV,por,valor,sessao:sess?sess.id:'',operador:uid||'',inicio:iso(),status:'aberta',itens:{},org:{},vazios:{}};
   ultimo=null; putContagem(cur); campo.value=''; $('inEnd').value=por==='endereco'?valor:''; renderCont();
   (por==='endereco'?$('inUa'):$('inEnd')).focus();
   if(por==='endereco')sinc([valor],[]);
@@ -732,11 +713,11 @@ function finalizar(){
   const c=cur,escp=escopo(c),noEsc=new Set(escp.map(s=>s.ua)),its=c.itens,agora=iso(),T=tol();
   const r={escopo:escp.length,contadas:0,endOk:0,kgContadas:0,kgOk:0,kgSist:0,kgFis:0,nEnd:0,nKg:0,nNao:0,nSobra:0,esperadas:escp.length,kgEsc:0,kgCerto:0,kgFalta:0,kgFora:0};
   const novos=[],det=[];
-  const mk=(ua,tipo,sist,fis,s)=>novos.push({id:`${c.id}-${ua}-${tipo}`,contagem:c.id,ua,tipo,sist,fis,status:'pendente',criado:agora,ger:GER(),por:'',em:'',motivo:'',
+  const mk=(ua,tipo,sist,fis,s)=>novos.push({id:`${c.id}-${ua}-${tipo}`,contagem:c.id,ua,tipo,sist,fis,status:'pendente',criado:agora,por:'',em:'',motivo:'',
     prod:s?s.produto:'',desc:s?s.descricao:'',lote:s?s.lote:'',kg:s?Number(s.kg)||0:0,endRef:(s?s.endereco:fis)||''});
   for(const ua in its){
     const i=its[ua],s=estoque[ua]; r.contadas++;
-    if(!s){r.nSobra++;r.escopo++;mk(ua,'sobra',null,i.endereco,null);det.push({ua,e:i.endereco,baia:baiaDe(i.endereco),prod:'',end:0,kg:null,dk:0,ks:0,sem:1});continue}
+    if(!s){r.nSobra++;r.escopo++;mk(ua,'sobra',null,i.endereco,null);det.push({ua,baia:baiaDe(i.endereco),prod:'',end:0,kg:null,dk:0,ks:0,sem:1});continue}
     const ks=Number(s.kg)||0;
     if(!noEsc.has(ua)){r.escopo++;r.kgFora+=ks}
     const eo=s.endereco===i.endereco?1:0;
@@ -744,9 +725,9 @@ function finalizar(){
     let ko=null,dk=0;
     if(i.kg!=null){dk=i.kg-s.kg;ko=Math.abs(dk)<=s.kg*T?1:0;r.kgContadas++;r.kgSist+=s.kg;r.kgFis+=i.kg;
       if(ko) r.kgOk++; else{r.nKg++;mk(ua,'kg',s.kg,i.kg,s)}}
-    det.push({ua,e:i.endereco,baia:baiaDe(i.endereco),prod:s.produto,end:eo,kg:ko,dk,ks});
+    det.push({ua,baia:baiaDe(i.endereco),prod:s.produto,end:eo,kg:ko,dk,ks});
   }
-  escp.forEach(s=>{const ks=Number(s.kg)||0;r.kgEsc+=ks;if(!its[s.ua]){r.nNao++;r.kgFalta+=ks;mk(s.ua,'nao',s.endereco,null,s);det.push({ua:s.ua,e:s.endereco,baia:baiaDe(s.endereco),prod:s.produto,end:0,kg:null,dk:0,ks})}});
+  escp.forEach(s=>{const ks=Number(s.kg)||0;r.kgEsc+=ks;if(!its[s.ua]){r.nNao++;r.kgFalta+=ks;mk(s.ua,'nao',s.endereco,null,s);det.push({ua:s.ua,baia:baiaDe(s.endereco),prod:s.produto,end:0,kg:null,dk:0,ks})}});
   c.fonte=aoVivo()?'wms':'carregado';c.ends=[...visitados(c)];c.det=det;c.status='finalizada';c.fim=agora;c.resumo=r;
   putContagem(c);novos.forEach(putAjuste);
   ultimo=c;cur=null;$('fimConf').hidden=true;renderTudo();
@@ -879,7 +860,7 @@ function renderAj(){
   if(ajV==='sem'){
     const f=document.activeElement;if(f&&f.dataset&&f.dataset.lote&&$('ajLista').contains(f))return;
     $('ajLista').innerHTML=lista.map(a=>semHtml(a,ab)).join('');return}
-  $('ajLista').innerHTML=`<table><thead><tr>${ab&&!ajV.startsWith('n')?'<th></th>':''}<th>UA</th><th>Item</th><th class="num">Kg</th><th>No sistema</th><th>${kg?'Físico':'Encontrada em'}</th>${kg?'<th class="num">Diferença</th>':''}<th>Motivo</th><th>Auditoria</th><th>${ab?'':'Situação'}</th></tr></thead><tbody>`+
+  $('ajLista').innerHTML=`<table class="ajT"><thead><tr>${ab&&!ajV.startsWith('n')?'<th></th>':''}<th>UA</th><th>Item</th><th class="num">Kg</th><th>No sistema</th><th>${kg?'Físico':'Encontrada em'}</th>${kg?'<th class="num">Diferença</th>':''}<th>Motivo</th><th>Auditoria</th><th>${ab?'':'Situação'}</th></tr></thead><tbody>`+
   lista.map(a=>{
     const s=estoque[a.ua],c=contagens[a.contagem],id=esc(a.id),rec=a.status==='recontar';
     const sis=kg?kgf(a.sist)+' kg':addr(a.de||a.sist),fis=kg?kgf(a.fis)+' kg':(a.tipo==='nao'?'<span class="sub">não bipada</span>':addr(a.fis));
@@ -892,12 +873,12 @@ function renderAj(){
          +(a.status==='pendente'?`<button class="btn ghost small" type="button" data-rc="${id}">Recontar</button>`:'<span class="chip off">Recontada</span>');
     }else{mot=esc(a.motivo||'');acao=feitoChip(a)}
     const d=descAj(a),lt=loteAj(a);
-    return `<tr>${ab&&!ajV.startsWith('n')?`<td>${!rec?`<input type="checkbox" aria-label="Selecionar ${esc(a.ua)}" data-sel="${id}" ${sel.has(a.id)?'checked':''}>`:''}</td>`:''}
-      <td class="ua">${esc(a.ua)}</td>
-      <td>${d?esc(d):'<span class="sub">—</span>'}${lt?'<br><span class="sub">lote '+esc(lt)+'</span>':''}</td>
-      <td class="num">${kg?'':kgf(kgAj(a))}</td><td>${sis}</td><td>${fis}</td>
-      ${kg?`<td class="num">${sinal(a.fis-a.sist)} kg</td>`:''}<td>${mot}</td>
-      <td class="sub nw">${c?esc(titulo(c))+'<br>'+dtf(c.fim):''}</td><td class="nw">${acao}</td></tr>`}).join('')+'</tbody></table>';
+    return `<tr>${ab&&!ajV.startsWith('n')?`<td class="csel">${!rec?`<input type="checkbox" aria-label="Selecionar ${esc(a.ua)}" data-sel="${id}" ${sel.has(a.id)?'checked':''}>`:''}</td>`:''}
+      <td class="ua cua">${esc(a.ua)}</td>
+      <td class="citem">${d?esc(d):'<span class="sub">—</span>'}${lt?'<br><span class="sub">lote '+esc(lt)+'</span>':''}</td>
+      <td class="num" data-l="Kg">${kg?'':kgf(kgAj(a))}</td><td data-l="No sistema">${sis}</td><td data-l="${kg?'Físico':'Encontrada em'}">${fis}</td>
+      ${kg?`<td class="num" data-l="Diferença">${sinal(a.fis-a.sist)} kg</td>`:''}<td data-l="Motivo">${mot}</td>
+      <td class="sub nw" data-l="Auditoria">${c?esc(titulo(c))+' · '+dtf(c.fim):''}</td><td class="nw cacao">${acao}</td></tr>`}).join('')+'</tbody></table>';
 }
 
 /* ajuste feito fora do app (no coletor ou no MLW): confere no WMS e tira da lista */
@@ -973,42 +954,10 @@ function serieDias(fs){
     const x=m[k]||(m[k]={k,fim:c.fim,n:0,e:0,E:0,p:0,P:0,ne:0,nn:0,ns:0});x.n++;x.ne+=c.resumo.nEnd||0;x.nn+=c.resumo.nNao||0;x.ns+=c.resumo.nSobra||0;x.e+=c.resumo.endOk;x.E+=c.resumo.escopo;x.p+=c.resumo.kgCerto||0;x.P+=(c.resumo.kgEsc||0)+(c.resumo.kgFora||0)});
   return Object.values(m).sort((a,b)=>a.k.localeCompare(b.k)).map(x=>({k:x.k,dia:diaf(x.fim),n:x.n,uas:x.E,kgAud:x.P,ne:x.ne,nn:x.nn,ns:x.ns,div:x.E-x.e,kgDiv:x.P-x.p,end:pct(x.e,x.E),kg:pct(x.p,x.P)}));
 }
-/* posições: resultado de cada endereço auditado. Fica a auditoria mais recente; contagem por endereço prevalece sobre lote/item, que só veem parte do endereço */
-const incompleta=c=>{const r=c.resumo||{},e=r.esperadas??r.escopo??0;return e>=4&&(r.contadas||0)<e*0.5};
-function posicoes(fs){
-  const m={},naoEnd={};Object.values(ajustes).forEach(a=>{if(a.tipo==='nao')naoEnd[a.contagem+'|'+a.ua]=(typeof a.sist==='string'&&a.sist)||a.endRef||''});
-  fs.slice().sort((a,b)=>String(a.fim).localeCompare(String(b.fim))).forEach(c=>{const loc={},g=e=>loc[e]||(loc[e]={e,b:baiaDe(e),n:0,ok:0,div:0,ks:0,kgDiv:0,fim:c.fim,cid:c.id,por:c.por,vezes:0});
-    (c.det||[]).forEach(d=>{const e=d.e||((c.itens||{})[d.ua]||{}).endereco||naoEnd[c.id+'|'+d.ua]||'';if(!e)return;const x=g(e),bom=d.end===1&&d.kg!==0&&!d.sem;
-      x.n++;x.ks+=d.ks||0;if(bom)x.ok++;else{x.div++;x.kgDiv+=d.ks||0}});
-    Object.keys(c.vazios||{}).forEach(e=>g(e));
-    Object.values(loc).forEach(x=>{const o=m[x.e];if(o&&o.por==='endereco'&&x.por!=='endereco'){o.vezes++;return}x.vezes=(o?o.vezes:0)+1;m[x.e]=x})});
-  return Object.values(m).sort((a,b)=>String(a.e).localeCompare(String(b.e)));
-}
-const durf=ms=>ms==null?'—':ms<36e5?Math.max(1,Math.round(ms/6e4))+' min':ms<1728e5?nf(Math.round(ms/36e4)/10)+' h':nf(Math.round(ms/864e4)/10)+' dias';
-function dadosPos(fs,as,t,kgAud,ids,geral){
-  const pos=posicoes(fs),ok=pos.filter(x=>!x.div).length,bm={};
-  pos.forEach(x=>{const y=bm[x.b]||(bm[x.b]={k:x.b,t:0,ok:0,div:0,uas:0,uasDiv:0,kgDiv:0});y.t++;x.div?y.div++:y.ok++;y.uas+=x.n;y.uasDiv+=x.div;y.kgDiv+=x.kgDiv});
-  const baias=Object.values(bm).map(y=>Object.assign(y,{p:pct(y.ok,y.t)})).sort((a,b)=>a.p-b.p||b.div-a.div||a.k.localeCompare(b.k));
-  const R={pos,tot:pos.length,ok,div:pos.length-ok,p:pct(ok,pos.length),baias,bTot:baias.length,bOk:baias.filter(y=>!y.div).length,bDiv:baias.filter(y=>y.div).length};
-  R.pB=pct(R.bOk,R.bTot);
-  /* cobertura e dias sem auditoria */
-  const uni=new Set(Object.values(estoque).map(e=>e.endereco).filter(Boolean)),temEst=uni.size>0;pos.forEach(x=>uni.add(x.e));
-  R.uni=uni.size;R.cob=temEst?pct(pos.length,uni.size):null;
-  if(geral&&temEst){const ult={};posicoes(finalizadas().filter(c=>!c.fora)).forEach(x=>{ult[x.e]=x.fim});let nunca=0,v30=0;uni.forEach(e=>{if(!ult[e])nunca++;else if(dias(ult[e])>30)v30++});R.nunca=nunca;R.v30=v30}
-  /* kg, tratamento, recontagem */
-  const pes=as.filter(a=>a.tipo==='kg'),errado=as.filter(a=>a.tipo==='end').reduce((s,a)=>s+kgAj(a),0);
-  R.kgFalta=t.kgFalta||0;R.kgErrado=errado;R.kgPeso=pes.reduce((s,a)=>s+Math.abs(a.fis-a.sist),0);R.kgAbs=R.kgFalta+R.kgErrado+R.kgPeso;R.pKgAbs=pct(R.kgAbs,kgAud);
-  const res=as.filter(a=>!aberto(a)),tm=res.filter(a=>a.em&&a.criado).map(a=>new Date(a.em)-new Date(a.criado)).filter(v=>v>=0);
-  R.pTrat=pct(res.length,as.length);R.tMed=tm.length?tm.reduce((s,v)=>s+v,0)/tm.length:null;
-  const rec=Object.values(ajustes).filter(a=>ids.has(a.contagem)&&a.recEm);R.rec=rec.length;R.recSem=rec.filter(a=>a.status==='sem_divergencia').length;R.recConf=R.rec-R.recSem;
-  R.inc=fs.filter(incompleta).length;
-  return R;
-}
 /* tudo que a tela e o relatório em PDF mostram sai daqui, para os dois sempre baterem */
 function dadosAc(o){
   o=o||{};const P=o.per||periodo(),de=o.so||o.sess?'':P.de,ate=o.so||o.sess?'':P.ate;
-  const fsT=finalizadas().filter(c=>{if(o.so)return c.id===o.so;if(o.sess)return c.sessao===o.sess;const k=diaKey(c.fim);return(!de||k>=de)&&(!ate||k<=ate)});
-  const fs=o.so?fsT:fsT.filter(c=>!c.fora),fora=o.so?[]:fsT.filter(c=>c.fora);
+  const fs=finalizadas().filter(c=>{if(o.so)return c.id===o.so;if(o.sess)return c.sessao===o.sess;const k=diaKey(c.fim);return(!de||k>=de)&&(!ate||k<=ate)});
   const ids=new Set(fs.map(c=>c.id)),as=Object.values(ajustes).filter(a=>ids.has(a.contagem)&&a.status!=='sem_divergencia');
   const t=fs.reduce((t,c)=>{for(const k in c.resumo)t[k]=(t[k]||0)+(Number(c.resumo[k])||0);return t},{});
   const kgAud=(t.kgEsc||0)+(t.kgFora||0),pe=pct(t.endOk||0,t.escopo||0),pk=pct(t.kgCerto||0,kgAud);
@@ -1022,8 +971,7 @@ function dadosAc(o){
   let ant=null;
   if(!o.so&&!o.sess&&!o.semAnt&&de&&ate){const d0=new Date(de+'T12:00:00').getTime(),n=Math.round((new Date(ate+'T12:00:00').getTime()-d0)/864e5)+1,dk=k=>diaKey(new Date(d0-k*864e5).toISOString());
     ant=dadosAc({per:{de:dk(n),ate:dk(1)},semAnt:true});if(!ant.fs.length)ant=null}
-  const X=dadosPos(fs,as,t,kgAud,ids,!o.semAnt&&!o.so&&!o.sess);
-  return {fs,fsT,fora,X,as,t,de,ate,perTxt,ant,so:o.so||'',uas:t.escopo||0,kgAud,divUa:(t.escopo||0)-(t.endOk||0),divKg:kgAud-(t.kgCerto||0),sem:t.nSobra||0,pe,pk,pg,mt,metas,val,
+  return {fs,as,t,de,ate,perTxt,ant,so:o.so||'',uas:t.escopo||0,kgAud,divUa:(t.escopo||0)-(t.endOk||0),divKg:kgAud-(t.kgCerto||0),sem:t.nSobra||0,pe,pk,pg,mt,metas,val,
     naMeta:val[mt]==null?null:val[mt]>=metas[mt],tipos,baias,ends:grp(endDe),prods:grp(prodDe),mots:grp(a=>a.motivo),
     abertas:as.filter(aberto).length,resolvidas:as.filter(a=>!aberto(a)).length,serie:serieDias(fs)};
 }
@@ -1106,34 +1054,17 @@ function renderAc(){
   $('acHero').innerHTML=k('Acuracidade por UA',D.pe,mE,'ua')+k('Acuracidade por kg',D.pk,mK,'kg')+k('Acuracidade geral',D.pg,D.metas.geral,'geral')+
     n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes (total)',D.divUa,kgf(D.divKg)+' kg')+
     n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'));
-  const X=D.X,m2=(tit,v,sub,cls)=>`<div class="mini"><span class="t">${tit}</span><b class="${fs.length&&cls?cls:''}">${fs.length?v:'—'}</b><span class="sub">${fs.length?sub:''}</span></div>`;
-  $('acPos').innerHTML=m2('Posições auditadas',X.tot,plural(X.bTot,'baia ou porta-palete','baias e porta-paletes'))+
-    m2('Posições corretas',X.ok,pctf(X.p)+' das auditadas',X.tot?(X.div?'':'ok'):'')+m2('Posições incorretas',X.div,pctf(pct(X.div,X.tot))+' das auditadas',X.div?'crit':'ok')+
-    m2('Baias 100% corretas',X.bOk,'de '+X.bTot+' auditadas',X.bTot&&!X.bDiv?'ok':'')+m2('Baias com posição incorreta',X.bDiv,'de '+X.bTot+' auditadas',X.bDiv?'crit':'ok')+
-    m2('Cobertura',X.cob==null?'—':pctf(X.cob),X.cob==null?'carregue o estoque na Config.':X.tot+' de '+X.uni+' endereços com saldo')+
-    (X.nunca==null?'':m2('Sem auditoria',X.nunca+X.v30,X.nunca+' nunca · '+X.v30+' há mais de 30 dias',X.nunca+X.v30?'crit':'ok'))+
-    m2('Divergência em kg',kgf(X.kgAbs),(X.pKgAbs==null?'':pctf(X.pKgAbs)+' do kg auditado'),X.kgAbs?'crit':'ok')+
-    m2('Divergências tratadas',D.as.length?pctf(X.pTrat):'—',D.as.length?'tempo médio '+durf(X.tMed):'nenhuma divergência')+
-    m2('Recontagens',X.rec,X.rec?X.recConf+' confirmadas · '+X.recSem+' sem divergência':'nenhuma no período')+
-    m2('Contagens incompletas',X.inc,X.inc?'menos da metade bipada':'nenhuma suspeita',X.inc?'crit':'')+
-    (D.fora.length?m2('Fora dos indicadores',D.fora.length,'desconsideradas por decisão do analista'):'');
-  $('acBaiaPos').innerHTML=X.baias.length?'<table><thead><tr><th>Local</th><th class="num">Posições auditadas</th><th class="num">Corretas</th><th class="num">Incorretas</th><th>Posições corretas</th><th class="num">UAs divergentes</th><th class="num">Kg divergente</th><th></th></tr></thead><tbody>'+
-    X.baias.map(y=>`<tr><td class="nw"><b>${esc(nomeGrupo(y.k))}</b></td><td class="num">${y.t}</td><td class="num">${y.ok}</td><td class="num">${y.div}</td><td class="nw">${barra(y.p,100)}${pctf(y.p)}</td><td class="num">${y.uasDiv}</td><td class="num">${kgf(y.kgDiv)}</td><td><span class="chip ${y.div?'crit':'ok'}">${y.div?'Com posição incorreta':'Todas corretas'}</span></td></tr>`).join('')+'</tbody></table>':vazio;
-  const pd=X.pos.filter(x=>x.div).sort((a,b)=>b.div-a.div||b.kgDiv-a.kgDiv);
-  $('acPosDiv').innerHTML=pd.length?'<table><thead><tr><th>Endereço</th><th>Local</th><th class="num">UAs conferidas</th><th class="num">UAs divergentes</th><th class="num">Kg divergente</th><th>Última auditoria</th><th class="num">Vezes auditado</th></tr></thead><tbody>'+
-    pd.slice(0,60).map(x=>`<tr><td>${addr(x.e)}</td><td>${esc(nomeGrupo(x.b))}</td><td class="num">${x.n}</td><td class="num">${x.div}</td><td class="num">${kgf(x.kgDiv)}</td><td class="nw">${dtf(x.fim)}</td><td class="num">${x.vezes}</td></tr>`).join('')+'</tbody></table>'+(pd.length>60?`<p class="sub">Mostrando as 60 piores de ${pd.length}. O Excel traz todas.</p>`:'')
-    :`<p class="empty">${!ready?'Carregando…':fs.length?'Nenhuma posição incorreta no período.':'Sem auditorias finalizadas neste período.'}</p>`;
   /* auditorias: a mais recente já abre com o resultado */
-  const lista=D.fsT;if(acAberta===null&&lista.length)acAberta=lista[0].id;
+  if(acAberta===null&&fs.length)acAberta=fs[0].id;
   $('acTit').textContent='Contagens'+(fs.length?' · '+D.perTxt:'');
-  $('acLista').innerHTML=lista.length?lista.map(c=>{const r=c.resumo,a=pct(r.endOk,r.escopo),kk=accKg(r),ab=acAberta===c.id,nd=r.nEnd+r.nKg+r.nNao+r.nSobra;
+  $('acLista').innerHTML=fs.length?fs.map(c=>{const r=c.resumo,a=pct(r.endOk,r.escopo),kk=accKg(r),ab=acAberta===c.id,nd=r.nEnd+r.nKg+r.nNao+r.nSobra;
     return `<div class="aud ${ab?'on':''}"><button type="button" class="audH" data-aud="${esc(c.id)}" aria-expanded="${ab}">
-      <span class="audT"><b>${esc(titulo(c))}</b><span class="sub">${dtf(c.fim)} · ${esc(nome(c.operador))}${c.fora?' · fora dos indicadores':incompleta(c)?' · possível contagem incompleta':''}</span></span>
+      <span class="audT"><b>${esc(titulo(c))}</b><span class="sub">${dtf(c.fim)} · ${esc(nome(c.operador))}</span></span>
       <span class="audN"><b class="${a>=mE?'ok':'crit'}">${pctf(a)}</b><span class="sub">por UA</span></span>
       <span class="audN"><b class="${kk>=mK?'ok':'crit'}">${pctf(kk)}</b><span class="sub">por kg</span></span>
       <span class="audN"><b>${r.contadas}/${r.esperadas??r.escopo}</b><span class="sub">bipadas / sistema</span></span>
       <span class="chip ${nd?'crit':'ok'}">${nd?plural(nd,'divergência','divergências'):'Sem divergência'}</span></button>
-      ${ab?`<div class="audB">${c.fora?'<p class="notice warn">Esta contagem está fora dos indicadores e dos relatórios do período. As divergências dela continuam na aba Ajustes.</p>':incompleta(c)?'<p class="notice warn">Foram bipadas menos da metade das UAs que o sistema aponta. Se a contagem foi interrompida ou era um teste, desconsidere-a dos indicadores.</p>':''}${auditoria(c,true)}<div class="row"><button class="btn ghost small" type="button" data-fora="${esc(c.id)}">${c.fora?'Voltar a considerar nos indicadores':'Desconsiderar dos indicadores'}</button></div></div>`:''}</div>`}).join('')
+      ${ab?`<div class="audB">${auditoria(c,true)}</div>`:''}</div>`}).join('')
     :`<p class="empty">${ready?'Nenhuma auditoria finalizada neste período. Faça uma na aba Auditar ou escolha outro período.':'Carregando…'}</p>`;
   $('gTipo').innerHTML=hbars(D.tipos.filter(x=>x.n).map(x=>({l:x.l,v:x.n,t:uasTxt(x.n)+(x.kg?' · '+kgf(x.kg)+' kg':''),c:x.k==='end'||x.k==='kg'?'warn':'crit'})),'Nenhuma divergência no período.');
   $('gBaia').innerHTML=hbars(D.baias.map(x=>({l:nomeGrupo(x.k),v:x.pe||0,max:100,t:pctf(x.pe)+(x.div?' · '+uasTxt(x.div)+' div. · '+kgf(x.kgDiv)+' kg':''),c:x.pe>=mE?'ok':'crit'})));
@@ -1216,12 +1147,6 @@ function gerarPdf(D){
   tabela(['Indicador','Resultado','Meta','Diferença','Status'],[['ua','Acuracidade por UA'],['kg','Acuracidade por kg'],['geral','Acuracidade geral (média de UA e kg)']].map(([k,l])=>{const p=D.val[k],m=D.metas[k];
     return [l+(D.mt===k?' - meta em uso':''),pctf(p),nf(m)+'%',p==null?'-':sinal(Math.round((p-m)*10)/10)+' p.p.',st(p,m)]}),corStatus(4));
   tabela(['Indicador','Quantidade'],[['UAs auditadas',D.uas],['Kg auditados',kgf(D.kgAud)+' kg'],['UAs no endereço correto',D.t.endOk||0],['UAs divergentes',D.divUa],['Kg divergente',kgf(D.divKg)+' kg'],['UAs sem saldo no sistema',D.sem]]);
-  if(D.X.tot){const X=D.X;pag('Posições e baias','Posição = endereço auditado. Está correta quando todas as UAs dela bateram com o sistema. Vale a auditoria mais recente de cada endereço no período.');
-    tiles([[X.tot,'Posições auditadas'],[X.ok,'Posições corretas ('+pctf(X.p)+')',V],[X.div,'Posições incorretas',X.div?R:V],[X.bOk,'Baias 100% corretas (de '+X.bTot+')',V],[X.bDiv,'Baias com posição incorreta',X.bDiv?R:V]]);
-    tabela(['Indicador','Resultado'],[['Cobertura (posições auditadas ÷ endereços com saldo carregado)',X.cob==null?'estoque não carregado':pctf(X.cob)+' ('+X.tot+' de '+X.uni+')'],['Divergência em kg (não encontrado + endereço errado + peso)',kgf(X.kgAbs)+' kg'+(X.pKgAbs==null?'':' ('+pctf(X.pKgAbs)+' do kg auditado)')],
-      ['Divergências tratadas',D.as.length?pctf(X.pTrat)+' · tempo médio '+durf(X.tMed):'nenhuma divergência'],['Recontagens',X.rec?X.rec+' ('+X.recConf+' confirmadas, '+X.recSem+' sem divergência)':'nenhuma'],['Contagens com menos da metade das UAs bipadas',X.inc]].concat(D.fora.length?[['Contagens desconsideradas dos indicadores',D.fora.length]]:[]));
-    pag('Posições por baia e porta-palete','Da pior para a melhor.');
-    tabela(['Local','Posições auditadas','Corretas','Incorretas','Posições corretas','UAs divergentes','Kg divergente','Status'],X.baias.map(b=>[nomeGrupo(b.k),b.t,b.ok,b.div,pctf(b.p),b.uasDiv,kgf(b.kgDiv),b.div?'Abaixo: com posição incorreta':'Dentro: todas corretas']),corStatus(7))}
   /* composição */
   if(D.uas){pag('Composição do resultado','Como as UAs e o peso auditados se dividem entre o que estava correto e o que divergiu.');const q=k=>(D.tipos.find(x=>x.k===k)||{n:0}).n;
     empilha('UAs auditadas: '+D.uas,[{l:'No endereço correto',v:D.t.endOk||0,cor:V},{l:'Endereço divergente',v:q('end'),cor:O},{l:'Não encontradas',v:q('nao'),cor:R},{l:'Sem saldo no sistema',v:q('sobra'),cor:[120,40,40]}]);
@@ -1354,7 +1279,9 @@ function renderCp(){
 function relCp(){const {A}=dadosCp();if(!A.fs.length){toast('Não há auditoria finalizada no período atual da comparação.');return null}if(!A.ant.fs.length)A.ant=null;return A}
 
 /* ---------- auditoria (sessão): várias contagens e um resumo no encerramento ---------- */
-function achaSess(){sess=Object.values(sessoes).find(s=>s.status==='aberta'&&(s.operador||'')===(uid||''))||null}
+/* cada aparelho tem a sua auditoria e a sua contagem em aberto, mesmo que dois usem o mesmo nome */
+const meu=x=>x.dev?x.dev===DEV:(x.operador||'')===(uid||'');
+function achaSess(){sess=Object.values(sessoes).find(s=>s.status==='aberta'&&meu(s))||null}
 function resumoSess(id){
   const D=dadosAc({sess:id}),m=D.metas[D.mt],v=D.val[D.mt];
   const k=(tit,p,mm)=>`<div class="mini"><span class="t">${tit}</span><b class="${p==null?'':p>=mm?'ok':'crit'}">${pctf(p)}</b><span class="sub">meta ${nf(mm)}%</span></div>`;
@@ -1369,12 +1296,15 @@ function resumoSess(id){
     <span class="row"><button class="btn small" type="button" data-sessmail="${esc(id)}">Enviar por e-mail</button><button class="btn ghost small" type="button" data-sesspdf="${esc(id)}">Baixar PDF</button><button class="btn ghost small" type="button" data-sessok="1">Agora não</button></span></div>`;
 }
 function renderSess(){
-  $('sessIni').hidden=!!sess||!!cur||!!sessFim;$('sessBar').hidden=!sess;$('sessRes').hidden=!!sess||!sessFim;
+  $('sessIni').hidden=!!sess||!!cur||!!sessFim;$('sessNomeL').hidden=!!uid||!window.__admin;$('sessBar').hidden=!sess;$('sessRes').hidden=!!sess||!sessFim;
   if(sess){const cs=Object.values(contagens).filter(c=>c.sessao===sess.id&&c.status==='finalizada'),u=cs.reduce((t,c)=>t+(c.resumo?c.resumo.contadas:0),0);
     $('sessTxt').textContent='Iniciada em '+dtf(sess.inicio)+' · '+plural(cs.length,'contagem finalizada','contagens finalizadas')+' · '+plural(u,'UA bipada','UAs bipadas')}
   if(!sess&&sessFim)$('sessRes').innerHTML=resumoSess(sessFim);
 }
-function iniciaSess(){sess={id:'s'+Date.now().toString(36),operador:uid||'',inicio:iso(),ger:GER(),status:'aberta'};sessoes[sess.id]=sess;grava('sessoes',sess.id,sess);sessFim=null;ultimo=null;renderCont();renderNova();$('novoEnd').focus()}
+function iniciaSess(){
+  if(!uid&&window.__admin){const n=$('sessNome').value.trim();if(!n){toast('Informe o seu nome para começar.');$('sessNome').focus();return}
+    uid=n;names[n]=n;try{localStorage.setItem('inv-operador',n)}catch(e){}$('quem').textContent='Operador: '+n}
+  sess={id:'s'+Date.now().toString(36)+DEV.slice(0,4),dev:DEV,operador:uid||'',inicio:iso(),status:'aberta'};sessoes[sess.id]=sess;grava('sessoes',sess.id,sess);sessFim=null;ultimo=null;renderCont();renderNova();$('novoEnd').focus()}
 function encerraSess(){
   if(!sess)return;if(cur){toast('Finalize ou cancele a contagem em andamento antes de encerrar a auditoria.');return}
   const tem=Object.values(contagens).some(c=>c.sessao===sess.id&&c.status==='finalizada');
@@ -1440,9 +1370,6 @@ async function exportar(){
     Sistema:a.sist??'','Físico':a.fis??'','Dif kg':a.tipo==='kg'?a.fis-a.sist:'',Situação:{pendente:'Pendente',recontar:'Aguardando recontagem',confirmada:'Confirmada na recontagem',ajustado:'Ajustado',sem_divergencia:'Sem divergência na recontagem'}[a.status]||a.status,
     Motivo:a.motivo||'','Resolvida por':a.por||a.recPor?nome(a.por||a.recPor):'','Resolvida em':dtf(a.em)})));
   add('Por baia',agrega(d=>d.baia).sort((a,b)=>a.k.localeCompare(b.k)).map(x=>{const o=og[x.k];return{Baia:x.k,UAs:x.n,'Acuracidade por UA %':pct(x.endOk,x.n),'Acuracidade por kg %':pct(x.ksOk,x.ks),'Kg auditado':x.ks,'Kg divergente':x.ks-x.ksOk,'UAs sem saldo':x.sem,'Organização %':o?pct(o.t-o.p,o.t):''}}));
-  const XP=dadosAc({per:{de:'',ate:''},semAnt:true}).X;
-  add('Posições auditadas',XP.pos.map(x=>({Endereço:x.e,Local:nomeGrupo(x.b),Situação:x.div?'Incorreta':'Correta','UAs conferidas':x.n,'UAs corretas':x.ok,'UAs divergentes':x.div,'Kg conferido':x.ks,'Kg divergente':x.kgDiv,'Última auditoria':dtf(x.fim),'Vezes auditado':x.vezes})));
-  add('Baias - posições',XP.baias.map(b=>({Local:nomeGrupo(b.k),'Posições auditadas':b.t,Corretas:b.ok,Incorretas:b.div,'Posições corretas %':b.p,'UAs divergentes':b.uasDiv,'Kg divergente':b.kgDiv})));
   add('Por produto',agrega(d=>d.prod).map(x=>({Produto:x.k,Descrição:prodDesc(x.k),UAs:x.n,'Acuracidade endereço %':pct(x.endOk,x.n),'Acuracidade peso %':pct(x.kgOk,x.kgN),'Dif kg':x.dk,'Impacto kg':x.adk})));
   add('Posições',Object.values(estoque).sort((a,b)=>String(a.endereco).localeCompare(b.endereco)).map(e=>({Endereço:e.endereco,UA:e.ua,Produto:e.produto,Descrição:e.descricao,Lote:e.lote,Kg:e.kg,'Última contagem':ult[e.ua]?dtf(ult[e.ua]):'Nunca','Dias sem contagem':ult[e.ua]?dias(ult[e.ua]):''})));
   try{await dl.save({filename:'auditoria-armazem-'+iso().slice(0,10)+'.xlsx',data:XLSX.write(wb,{type:'array',bookType:'xlsx'})});toast('Planilha salva.')}
@@ -1480,7 +1407,6 @@ document.addEventListener('click',ev=>{
   else if(d.sessmail){const D=dadosAc({sess:d.sessmail});if(D.fs.length)enviarEmail(D)}
   else if(d.sesspdf){const D=dadosAc({sess:d.sesspdf});if(D.fs.length)baixarPdf(D)}
   else if(d.sessok){sessFim=null;renderCont()}
-  else if(d.fora){const c=contagens[d.fora];if(c){c.fora=!c.fora;c.foraPor=c.fora?(uid||''):'';c.foraEm=c.fora?iso():'';putContagem(c);renderAc();renderCp();toast(c.fora?'Contagem fora dos indicadores.':'Contagem de volta aos indicadores.')}}
   else if(d.aud){acAberta=acAberta===d.aud?'':d.aud;renderAc()}
   else if(d.pdfaud){baixarPdf(d.pdfaud)}
   else if(d.por){por=d.por;renderNova()}
@@ -1552,7 +1478,6 @@ $('posBusca').addEventListener('input',renderAz);
 ['azF','azItem','azSit'].forEach(i=>$(i).addEventListener('change',renderAz));
 $('azLimpa').onclick=()=>{['azF','azItem','azSit','posBusca'].forEach(i=>{$(i).value=''});renderAz()};
 $('admOk').onclick=entraAdm;$('admS1').addEventListener('keydown',ev=>{if(ev.key==='Enter'&&!$('admL2').hidden===false)entraAdm()});
-$('zrOk').onclick=zerarDados;
 $('admSair').onclick=()=>{admOk=false;window.__adminSenha='';renderAdm()};
 renderAdm();window.addEventListener('load',renderAdm);setTimeout(renderAdm,400);
 let ini=(location.hash||'').slice(1);try{ini=ini||localStorage.getItem('inv-tab')||''}catch(e){}
@@ -1671,7 +1596,7 @@ abre(ini);renderTudo();boot();
     for(const k of Object.keys(pend)){const i=k.indexOf('|'),c=k.slice(0,i),id=k.slice(i+1),o=(I.cols[c]||{})[id];
       try{const r=await fetch(base()+'/'+c+'/'+E(id)+'.json',{method:o===undefined?'DELETE':'PUT',body:o===undefined?undefined:JSON.stringify(o)});if(!r.ok)throw 0;
         if(JSON.stringify((I.cols[c]||{})[id])===JSON.stringify(o)){delete pend[k];salvaPend()}}catch(e){break}}
-    enviando=false;mostra();
+    enviando=false;mostra();if(Object.keys(pend).length&&navigator.onLine!==false)setTimeout(descarrega,1500);
   }
   I.hook=(c,id)=>{if(!COLS.includes(c)||!nv.url||!nv.cod)return;pend[c+'|'+id]=1;salvaPend();descarrega()};
   function aplica(path,data){
