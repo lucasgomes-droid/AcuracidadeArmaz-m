@@ -1034,13 +1034,22 @@ function dadosAc(o){
   let ant=null;
   if(!o.so&&!o.sess&&!o.semAnt&&de&&ate){const d0=new Date(de+'T12:00:00').getTime(),n=Math.round((new Date(ate+'T12:00:00').getTime()-d0)/864e5)+1,dk=k=>diaKey(new Date(d0-k*864e5).toISOString());
     ant=dadosAc({per:{de:dk(n),ate:dk(1)},semAnt:true});if(!ant.fs.length)ant=null}
-  return {fs,as,t,de,ate,perTxt,ant,so:o.so||'',uas:t.escopo||0,kgAud,divUa:(t.escopo||0)-(t.endOk||0),divKg:kgAud-(t.kgCerto||0),sem:t.nSobra||0,pe,pk,pg,mt,metas,val,
+  const venc=vencidasDe(fs);
+  return {fs,as,t,de,ate,perTxt,ant,venc,so:o.so||'',uas:t.escopo||0,kgAud,divUa:(t.escopo||0)-(t.endOk||0),divKg:kgAud-(t.kgCerto||0),sem:t.nSobra||0,pe,pk,pg,mt,metas,val,
     naMeta:val[mt]==null?null:val[mt]>=metas[mt],tipos,baias,ends:grp(endDe),prods:grp(prodDe),mots:grp(a=>a.motivo),
     pq:pct(t.kgOk||0,t.kgContadas||0),qtdN:t.kgContadas||0,qtdOk:t.kgOk||0,nVenc:t.nVenc||0,nBloq:t.nBloq||0,kgBloq:t.kgBloq||0,
     abertas:as.filter(aberto).length,resolvidas:as.filter(a=>!aberto(a)).length,serie:serieDias(fs)};
 }
 const qt=(D,k)=>{const x=D.tipos.find(t=>t.k===k);return x?x.n:0},qkg=(D,k)=>{const x=D.tipos.find(t=>t.k===k);return x?x.kg:0};
 const plural=(n,s,p)=>n+' '+(n===1?s:p);
+function vencidasDe(fs){
+  const m={};
+  fs.forEach(c=>{const its=c.itens||{};for(const ua in its){const i=its[ua],s=estoque[ua]||{},k=dIso(i.venc||s.venc);if(!k||diasPara(k)>=0||m[ua])continue;
+    m[ua]={ua,k,lote:s.lote||'sem lote',prod:s.produto||'',desc:s.descricao||'',kg:Number(i.kgs!=null?i.kgs:s.kg)||0,end:i.endereco||s.endereco||''}}});
+  const l=Object.values(m),g={};
+  l.forEach(x=>{const q=x.prod+'|'+x.lote,y=g[q]||(g[q]={lote:x.lote,prod:x.prod,desc:x.desc,k:x.k,n:0,kg:0,ends:new Set()});y.n++;y.kg+=x.kg;if(x.k<y.k)y.k=x.k;if(x.end)y.ends.add(x.end)});
+  return {l:l.sort((a,b)=>a.k.localeCompare(b.k)||a.ua.localeCompare(b.ua)),uas:l.length,kg:l.reduce((s,x)=>s+x.kg,0),lotes:Object.values(g).map(y=>Object.assign(y,{ends:[...y.ends].sort()})).sort((a,b)=>a.k.localeCompare(b.k))};
+}
 function sumario(D){
   if(!D.fs.length) return [];
   const n=D.fs.length,s=[];
@@ -1118,7 +1127,7 @@ function renderAc(){
   const n=(tit,v,sub)=>`<div class="mini"><span class="t">${tit}</span><b>${fs.length?v:'—'}</b><span class="sub">${fs.length?sub:''}</span></div>`;
   $('acHero').innerHTML=k('Acuracidade por UA',D.pe,mE,'ua')+k('Acuracidade por kg',D.pk,mK,'kg')+k('Acuracidade geral',D.pg,D.metas.geral,'geral')+
     n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes (total)',D.divUa,kgf(D.divKg)+' kg')+
-    n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Quantidade conferida',D.qtdN?pctf(D.pq):'—',D.qtdN?D.qtdOk+' de '+D.qtdN+' conferem':'não conferida')+n('Vencidas ou a vencer',D.nVenc,'entre as auditadas')+n('Bloqueadas',D.nBloq,kgf(D.kgBloq)+' kg')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'));
+    n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Quantidade conferida',D.qtdN?pctf(D.pq):'—',D.qtdN?D.qtdOk+' de '+D.qtdN+' conferem':'não conferida')+n('Vencidas',D.venc.uas,kgf(D.venc.kg)+' kg')+n('Vencidas ou a vencer',D.nVenc,'entre as auditadas')+n('Bloqueadas',D.nBloq,kgf(D.kgBloq)+' kg')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'));
   /* auditorias: a mais recente já abre com o resultado */
   if(acAberta===null&&fs.length)acAberta=fs[0].id;
   $('acTit').textContent='Contagens'+(fs.length?' · '+D.perTxt:'');
@@ -1267,13 +1276,17 @@ function gerarPdf(D){
   par('Relatório gerado automaticamente a partir das auditorias registradas no app de Auditoria de Armazém, comparadas com o saldo do Zion WMS. Acuracidade por UA = UAs no endereço certo ÷ UAs auditadas. Acuracidade por kg = kg no endereço certo ÷ kg auditado. Acuracidade geral = média das duas. Os pontos críticos são sugestões automáticas e devem ser revisados pelo analista.',9,C);
   const n=doc.getNumberOfPages();for(let i=2;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...C);doc.text(i+' / '+n,W-M,H-8,{align:'right'})}
   const nomeArq='auditoria-armazem-'+(D.so?limpa(titulo(D.fs[0])).toLowerCase()+'-'+diaKey(D.fs[0].fim):D.de&&D.de===D.ate?D.de:diaKey(iso()))+'.pdf';
+  if(D.venc.uas){pag('Produto vencido','UAs auditadas com validade vencida: '+plural(D.venc.uas,'UA','UAs')+', '+kgf(D.venc.kg)+' kg.');
+    tabela(['Lote','Item','Venceu em','UAs','Kg','Endereços'],D.venc.lotes.map(y=>[y.lote,y.desc||y.prod,brDia(y.k),y.n,kgf(y.kg),y.ends.join(', ')]));
+    tabela(['UA','Item','Lote','Venceu em','Kg','Endereço'],D.venc.l.map(x=>[x.ua,x.desc||x.prod,x.lote,brDia(x.k),kgf(x.kg),x.end]))}
   return {blob:doc.output('blob'),nome:nomeArq};
 }
 function textoEmail(D){
   return ['Auditoria de armazém - acuracidade de estoque','Período: '+D.perTxt,'',sumario(D).join(' '),'',
-    'UAs auditadas: '+D.uas,'Kg auditados: '+kgf(D.kgAud),'UAs divergentes: '+D.divUa,'Kg divergente: '+kgf(D.divKg),'UAs sem saldo no sistema: '+D.sem,
+    'UAs auditadas: '+D.uas,'Kg auditados: '+kgf(D.kgAud),'UAs divergentes: '+D.divUa,'Kg divergente: '+kgf(D.divKg),'UAs sem saldo no sistema: '+D.sem,'UAs vencidas: '+D.venc.uas,'Kg vencido: '+kgf(D.venc.kg),
     'Acuracidade por UA: '+pctf(D.pe),'Acuracidade por kg: '+pctf(D.pk),'Acuracidade geral: '+pctf(D.pg),
     ...(D.ant?['','Comparação com '+D.ant.perTxt+':','Acuracidade por UA: '+pctf(D.pe)+' (antes '+pctf(D.ant.pe)+')','Acuracidade por kg: '+pctf(D.pk)+' (antes '+pctf(D.ant.pk)+')','UAs divergentes: '+D.divUa+' (antes '+D.ant.divUa+')','Kg divergente: '+kgf(D.divKg)+' (antes '+kgf(D.ant.divKg)+')']:[]),
+    ...(D.venc.uas?['','Lotes vencidos encontrados na auditoria:',...D.venc.lotes.map(y=>'- Lote '+y.lote+(y.desc?' · '+y.desc:'')+' · venceu em '+brDia(y.k)+' · '+plural(y.n,'UA','UAs')+' · '+kgf(y.kg)+' kg')]:[]),
     '','O relatório completo segue no PDF.'].join('\n');
 }
 function prontoParaRelatorio(so){
@@ -1353,7 +1366,7 @@ function resumoSess(id){
   const n=(tit,x,sub)=>`<div class="mini"><span class="t">${tit}</span><b>${x}</b><span class="sub">${sub}</span></div>`;
   return `<div class="row"><div class="grow"><h2>Resumo da auditoria</h2><p class="sub">${esc(D.perTxt)} · ${plural(D.fs.length,'contagem','contagens')}</p></div>
     <span class="chip ${D.naMeta?'ok':'crit'}">Meta ${NOME_META[D.mt]} (${nf(m)}%) ${D.naMeta?'atingida':'não atingida'}: ${pctf(v)}</span></div>
-  <div class="minis">${k('Acuracidade por UA',D.pe,D.metas.ua)+k('Acuracidade por kg',D.pk,D.metas.kg)+k('Acuracidade geral',D.pg,D.metas.geral)+n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes (total)',D.divUa,kgf(D.divKg)+' kg')+n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Quantidade conferida',D.qtdN?pctf(D.pq):'—',D.qtdN?D.qtdOk+' de '+D.qtdN+' conferem':'não conferida')+n('Vencidas ou a vencer',D.nVenc,'entre as auditadas')+n('Bloqueadas',D.nBloq,kgf(D.kgBloq)+' kg')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'))}</div>
+  <div class="minis">${k('Acuracidade por UA',D.pe,D.metas.ua)+k('Acuracidade por kg',D.pk,D.metas.kg)+k('Acuracidade geral',D.pg,D.metas.geral)+n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes (total)',D.divUa,kgf(D.divKg)+' kg')+n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Quantidade conferida',D.qtdN?pctf(D.pq):'—',D.qtdN?D.qtdOk+' de '+D.qtdN+' conferem':'não conferida')+n('Vencidas',D.venc.uas,kgf(D.venc.kg)+' kg')+n('Vencidas ou a vencer',D.nVenc,'entre as auditadas')+n('Bloqueadas',D.nBloq,kgf(D.kgBloq)+' kg')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'))}</div>
   <h3>Divergências encontradas</h3>${hbars(D.tipos.filter(x=>x.n).map(x=>({l:x.l,v:x.n,t:uasTxt(x.n)+(x.kg?' · '+kgf(x.kg)+' kg':''),c:x.k==='end'||x.k==='kg'?'warn':'crit'})),'Nenhuma divergência nesta auditoria.')}
   <h3>Contagens realizadas</h3><div class="scroll"><table><thead><tr><th>Contagem</th><th>Hora</th><th class="num">Bipadas / sistema</th><th class="num">Por UA</th><th class="num">Por kg</th><th>Divergências</th></tr></thead><tbody>${
     D.fs.slice().reverse().map(c=>{const r=c.resumo;return `<tr><td><b>${esc(titulo(c))}</b></td><td class="nw">${dtf(c.fim)}</td><td class="num">${r.contadas}/${r.esperadas??r.escopo}</td><td class="num">${pctf(pct(r.endOk,r.escopo))}</td><td class="num">${pctf(accKg(r))}</td><td>${divTxt(r)?esc(divTxt(r)):'<span class="chip ok">Sem divergência</span>'}</td></tr>`}).join('')}</tbody></table></div>
