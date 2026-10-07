@@ -262,6 +262,18 @@ b.ok{color:var(--ok)} b.crit{color:var(--crit)}
   #tab-acuracidade > .panel:first-child{padding:12px;gap:10px}
   #tab-acuracidade > .panel:first-child .btn{min-height:42px;padding:0 12px;font-size:14px}
 }
+.qsis{font:600 13px var(--mono);background:var(--sunk);padding:3px 8px;border-radius:4px;white-space:nowrap}
+.stk{display:flex;height:30px;border-radius:6px;overflow:hidden}
+.stk i{display:flex;align-items:center;justify-content:center;font:600 12px var(--mono);font-style:normal;color:#fff}
+.s-ok{background:var(--ok)} .s-crit{background:var(--crit)} .s-warn{background:#d9822b} .s-off{background:var(--muted)}
+.legend .sw.s-ok,.legend .sw.s-crit,.legend .sw.s-warn,.legend .sw.s-off{height:10px;width:10px}
+textarea{font:500 14px var(--mono);padding:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);width:100%;border-radius:8px;resize:vertical}
+button.cel{cursor:pointer;font-family:var(--mono)}
+.cel.vz{background:var(--surface);border-style:dashed;color:var(--fg)}
+.cel.vzok{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+#vzLista .mapa{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
+#vzLista .baiaCard:first-child{border-top:0;padding-top:0}
+#tipoSeg button{flex:1 1 40%}
 summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercase;letter-spacing:.04em}
 #toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:11px 18px;font-weight:600;max-width:90vw;border-radius:8px;z-index:5;box-shadow:var(--shadow)}
 </style>
@@ -311,10 +323,18 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
         <button type="button" data-por="endereco" aria-pressed="true">Endereço</button>
         <button type="button" data-por="lote" aria-pressed="false">Por lote</button>
         <button type="button" data-por="item" aria-pressed="false">Por item</button>
+        <button type="button" data-por="vazio" aria-pressed="false">Endereços vazios</button>
       </div>
       <p class="sub" id="tipoDesc">Bipe um endereço e as UAs que estão nele. O app confere se cada UA está onde o sistema diz.</p>
       <label id="valorLbl" hidden><span id="valorTxt">Lote</span><input type="text" id="valorIn" list="valorLst" autocapitalize="characters" autocomplete="off"><datalist id="valorLst"></datalist></label>
       <label id="novoEndLbl">Informe o endereço<input type="text" id="novoEnd" placeholder="M04A01" autocapitalize="characters"></label>
+      <label id="vzLbl" hidden>Qual armazém deseja?<select id="vzArm"></select></label>
+      <div class="stack" id="confOpc">
+      <h3>O que conferir nesta contagem</h3>
+      <label class="check"><input type="checkbox" id="novoEndOk" checked disabled>Endereço da UA <span class="sub">(sempre)</span></label>
+      <label class="check"><input type="checkbox" id="novoQtd">Quantidade (kg)</label>
+      <p class="sub">Validade, bloqueio e a quantidade do sistema aparecem sozinhos em cada UA bipada.</p>
+      </div>
       <button class="btn" id="btnIniciar" type="button">Iniciar</button>
     </div>
 
@@ -331,8 +351,8 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
         </div>
         <label>UA<input type="text" id="inUa" placeholder="Bipe a UA" autocapitalize="characters" inputmode="none"></label>
         <button class="btn ghost small" type="button" id="btnTec" style="align-self:flex-start">Digitar a UA no teclado</button>
-        <label class="check"><input type="checkbox" id="confKg">Conferir peso</label>
-        <label id="kgLbl" hidden>Peso físico (kg)<input type="text" id="inKg" inputmode="decimal" placeholder="0,0"></label>
+        <label class="check"><input type="checkbox" id="confKg">Conferir quantidade (kg)</label>
+        <label id="kgLbl" hidden>Quantidade contada (kg)<input type="text" id="inKg" inputmode="decimal" placeholder="0,0"></label>
         <button class="btn" type="submit">Registrar UA</button>
         <div class="bip" id="ultBip" role="status" hidden></div>
       </form>
@@ -349,6 +369,13 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       </div>
     </div>
 
+    <div class="panel" id="vzBox" hidden style="max-width:880px">
+      <div class="row"><div class="grow"><h2 id="vzTit"></h2><p class="sub" id="vzSub"></p></div><span class="progress" id="vzProg"></span></div>
+      <div class="legend"><span><span class="cel vz">A05</span> falta conferir</span><span><span class="cel vzok">&#10003; A05</span> vazio confirmado</span><span><span class="cel div">! A05</span> tem UA no físico</span></div>
+      <div id="vzLista" class="stack"></div>
+      <p class="sub">Toque no endereço para marcar: uma vez confirma que está vazio, duas vezes indica que tem UA no físico (vira divergência nos Ajustes), três vezes desfaz.</p>
+      <div class="row"><button class="btn" type="button" id="btnVzFim">Finalizar contagem</button><button class="btn danger" type="button" id="btnVzCanc">Cancelar</button></div>
+    </div>
     <div class="panel narrow" id="recBox">
       <h2>Recontagens</h2>
       <div class="items" id="recLista"></div>
@@ -356,7 +383,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
         <p><span class="ua" id="rcUa"></span> <span class="sub" id="rcAviso"></span></p>
         <label id="rcEndLbl">Endereço onde a UA está<input type="text" id="rcEnd" placeholder="B01-R01-N1" autocapitalize="characters"></label>
         <label class="check" id="rcNaoLbl"><input type="checkbox" id="rcNao">UA não encontrada</label>
-        <label id="rcKgLbl">Peso físico (kg)<input type="text" id="rcKg" inputmode="decimal" placeholder="0,0"></label>
+        <label id="rcKgLbl">Quantidade contada (kg)<input type="text" id="rcKg" inputmode="decimal" placeholder="0,0"></label>
         <div class="row"><button class="btn" type="submit">Registrar recontagem</button><button class="btn ghost" type="button" id="rcVolta">Voltar</button></div>
       </form>
     </div>
@@ -404,7 +431,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
     <div class="panel"><h2 id="acTit">Auditorias</h2><div id="acLista"></div></div>
     <div class="cols">
       <div class="panel"><h2>Divergências por tipo</h2><div id="gTipo"></div></div>
-      <div class="panel"><h2>Acuracidade por baia e porta-palete</h2><div id="gBaia"></div></div>
+      <div class="panel"><h2>Acuracidade por armazém</h2><div id="gBaia"></div></div>
     </div>
     <div class="cols">
       <div class="panel"><h2>Endereços com mais divergência</h2><div id="rkEnd"></div></div>
@@ -434,7 +461,8 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
           <label>Meta por UA (%)<input type="text" class="num" id="cfMetaEnd" inputmode="decimal"></label>
           <label>Meta por kg (%)<input type="text" class="num" id="cfMetaKg" inputmode="decimal"></label>
           <label>Meta geral (%)<input type="text" class="num" id="cfMetaGeral" inputmode="decimal"></label>
-          <label>Tolerância de peso (%)<input type="text" class="num" id="cfTol" inputmode="decimal"></label>
+          <label>Tolerância de quantidade (%)<input type="text" class="num" id="cfTol" inputmode="decimal"></label>
+          <label>Avisar vencimento com (dias)<input type="text" class="num" id="cfVenc" inputmode="numeric"></label>
         </div>
         <label>E-mails que recebem o relatório (separe com vírgula)<input type="text" class="sm" style="max-width:none;width:100%" id="cfEmails" placeholder="nome@iccbrazil.com.br, outro@iccbrazil.com.br" autocapitalize="none"></label>
         <button class="btn" type="button" id="btnCfg" style="align-self:flex-start">Salvar</button>
@@ -465,23 +493,29 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
     </div>
     <div class="minis" id="cpCards"></div>
     <div class="panel"><h2>Indicadores</h2><div class="scroll" id="cpTab"></div></div>
-    <div class="panel"><h2>Acuracidade por UA, por baia e porta-palete</h2><div class="scroll" id="cpBaia"></div></div>
+    <div class="panel"><h2>Acuracidade por UA, por armazém</h2><div class="scroll" id="cpBaia"></div></div>
   </section>
 
   <!-- ARMAZÉM -->
   <section id="tab-armazem" hidden>
+    <div class="seg" id="azVis" style="align-self:flex-start;max-width:100%"><button type="button" data-az="ocu" aria-pressed="true">Ocupação</button><button type="button" data-az="val" aria-pressed="false">Validade</button><button type="button" data-az="blq" aria-pressed="false">Bloqueado e reservado</button></div>
     <div class="panel">
       <div class="row" style="align-items:flex-end">
-        <label>Baia ou porta-palete<select class="sm" id="azF"></select></label>
+        <label>Armazém<select class="sm" id="azF"></select></label>
         <label>Item<select class="sm" id="azItem"></select></label>
         <label>Situação<select class="sm" id="azSit"><option value="">Todas</option><option value="nunca">Nunca auditadas</option><option value="30">Mais de 30 dias sem auditar</option><option value="dia">Auditadas nos últimos 30 dias</option><option value="div">Com divergência em aberto</option></select></label>
+        <label id="azPrazoL" hidden>Vencimento<select class="sm" id="azPrazo"><option value="30">Vencidas e até 30 dias</option><option value="60">Até 60 dias</option><option value="90">Até 90 dias</option><option value="todas">Todas</option></select></label>
         <label class="grow" style="max-width:260px">Buscar<input type="text" class="sm" style="max-width:none;width:100%" id="posBusca" placeholder="UA, lote ou endereço"></label>
         <button class="btn ghost small" type="button" id="azLimpa">Limpar filtros</button>
       </div>
       <p class="sub" id="azTxt"></p>
     </div>
+    <div id="azOcu" class="stack" style="gap:18px">
     <div class="panel"><h2 id="azTit">Ocupação e dias sem auditoria</h2><div class="scroll" id="azBaia"></div></div>
     <div class="panel"><h2>Estoque no sistema</h2><div class="scroll" id="posLista"></div></div>
+    </div>
+    <div id="azVal" class="stack" style="gap:18px" hidden></div>
+    <div id="azBlq" class="stack" style="gap:18px" hidden></div>
   </section>
 
   <!-- CONFIGURAÇÃO (com senha) -->
@@ -530,6 +564,12 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       </div>
       <button class="btn ghost" type="button" id="nvDesl" style="align-self:flex-start" hidden>Desligar neste aparelho</button>
     </div>
+      <div class="panel" id="endBox">
+        <div class="row"><h2 class="grow">Endereços cadastrados</h2><span class="chip off" id="endSt"></span></div>
+        <p class="sub">Usado na contagem de endereços vazios. O app aprende sozinho todo endereço que aparece com estoque. Para incluir os que nunca tiveram estoque, cole aqui a lista de endereços do cadastro do MLW, um por linha. Basta fazer uma vez.</p>
+        <label>Colar endereços<textarea id="endTxt" rows="4" autocapitalize="characters"></textarea></label>
+        <button class="btn" type="button" id="endAdd" style="align-self:flex-start">Acrescentar à lista</button>
+      </div>
       <button class="btn ghost" type="button" id="admSair" style="align-self:flex-start">Bloquear de novo</button>
     </div>
   </section>
@@ -550,7 +590,7 @@ const pctf=p=>p==null?'—':p.toLocaleString('pt-BR',{minimumFractionDigits:1,ma
 const dtf=s=>s?new Date(s).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
 const diaf=s=>s?new Date(s).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
 const baiaDe=e=>{e=String(e||'').toUpperCase();let m;if(e.includes('-'))return e.split('-')[0];if(m=e.match(/^M[79]/))return m[0];if(m=e.match(/^M\d{2}(?=[A-Z]\d)/))return m[0];return e};
-const nomeGrupo=v=>(/^M[79]$/.test(v)?'Porta-palete ':/^M\d{2}$/.test(v)?'Baia ':'')+v;
+const nomeGrupo=v=>/^M[79]$/.test(v)?'Armazém '+v+' (porta-palete)':/^M\d{2}$/.test(v)?'Armazém '+v:v;
 const limpa=v=>String(v||'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'');
 const addr=e=>e?`<span class="addr">${esc(e)}</span>`:`<span class="addr none">sem endereço</span>`;
 const clone=o=>JSON.parse(JSON.stringify(o));
@@ -558,7 +598,7 @@ const iso=()=>new Date().toISOString();
 const numIn=t=>{t=String(t).trim();if(!t)return null;const n=parseFloat(t.replace(/\./g,'').replace(',','.'));return isFinite(n)&&n>=0?n:NaN};
 
 let db=null,user=null,dl=null,uid=null,ready=false;
-let estoque={},contagens={},ajustes={},names={},plano=null,cfg={metaEnd:98,metaKg:98,metaGeral:98,tol:1,metaTipo:'ua',emails:''};
+let estoque={},contagens={},ajustes={},names={},plano=null,cfg={metaEnd:98,metaKg:98,metaGeral:98,tol:1,metaTipo:'ua',emails:'',venc:30};
 let cur=null,ultimo=null,por='endereco',ajF='aberto',ajT='',reconId=null,plSig='',pts=[];
 const sel=new Set();
 let sessoes={},sess=null,sessFim=null;
@@ -599,7 +639,7 @@ async function boot(){
   $('mailNota').textContent=window.__enviarEmail?'Envio automático ligado: o relatório sai direto deste computador para os e-mails acima.':'Enviar por e-mail gera o PDF e abre o e-mail deste aparelho já com o resumo. No celular ou coletor, o PDF vai anexado.';
   try{const perm=await window.claude?.use?.('permissions')??null;if(perm){$('btnPerm').hidden=false;$('btnPerm').onclick=()=>{perm.manage().catch(()=>{})}}}catch(e){}
   if(!db){renderTudo();return}
-  db.collection('estoque').onSnapshot(s=>{estoque=mapa(s);renderTudo()},falhaDados);
+  db.collection('estoque').onSnapshot(s=>{estoque=mapa(s);aprendeEnds();renderTudo()},falhaDados);
   db.collection('contagens').onSnapshot(s=>{
     contagens=mapa(s);
     if(!cur){const a=Object.values(contagens).find(c=>c.status==='aberta'&&(c.dev?c.dev===DEV:!!uid&&c.operador===uid));if(a)cur=a}
@@ -608,7 +648,7 @@ async function boot(){
   db.collection('ajustes').onSnapshot(s=>{ajustes=mapa(s);renderRec();renderPlano();renderAj();renderAc()},falhaDados);
   db.collection('sessoes').onSnapshot(s=>{sessoes=mapa(s);achaSess();renderCont();renderNova()},falhaDados);
   db.collection('planos').onSnapshot(s=>{plano=mapa(s).ativo||null;renderPlano()},falhaDados);
-  db.collection('config').onSnapshot(s=>{const g=mapa(s).geral;if(g)cfg=Object.assign({metaEnd:98,metaKg:98,metaGeral:98,tol:1,metaTipo:'ua',emails:''},g);renderCfg();renderAc()},falhaDados);
+  db.collection('config').onSnapshot(s=>{const en=mapa(s).enderecos;endsCad=(en&&en.l)||[];cfgOk=true;aprendeEnds();renderEnds();const g=mapa(s).geral;if(g)cfg=Object.assign({metaEnd:98,metaKg:98,metaGeral:98,tol:1,metaTipo:'ua',emails:'',venc:30},g);renderCfg();renderAc()},falhaDados);
   renderTudo();
 }
 async function resolveNomes(){
@@ -627,12 +667,14 @@ const aberto=a=>a.status==='pendente'||a.status==='confirmada'||a.status==='reco
 /* ---------- contar ---------- */
 const DESC={endereco:'Informe o endereço e bipe as UAs que estão nele. O app confere se cada UA está endereçada ali.',
   lote:'Informe o lote. O app busca no WMS todas as UAs do lote; bipe o endereço e as UAs onde elas estiverem. O que não for bipado entra como não encontrado.',
-  item:'Informe o código do item. O app busca no WMS todas as UAs do item; bipe o endereço e as UAs onde elas estiverem. O que não for bipado entra como não encontrado.'};
+  item:'Informe o código do item. O app busca no WMS todas as UAs do item; bipe o endereço e as UAs onde elas estiverem. O que não for bipado entra como não encontrado.',
+  vazio:'Lista os endereços que o sistema diz estarem vazios, para conferir no físico se estão vazios mesmo. Escolha um armazém ou todos.'};
 function renderNova(){
   if(!DESC[por])por='endereco';
   document.querySelectorAll('#tipoSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.por===por));
   $('tipoDesc').textContent=DESC[por];
-  $('valorLbl').hidden=por==='endereco';$('novoEndLbl').hidden=por!=='endereco';
+  const vzM=por==='vazio';$('valorLbl').hidden=por==='endereco'||vzM;$('novoEndLbl').hidden=por!=='endereco';$('vzLbl').hidden=!vzM;$('confOpc').hidden=vzM;
+  if(!$('btnIniciar').disabled)$('btnIniciar').textContent=vzM?'Buscar endereços vazios':'Iniciar';renderEnds();
   $('valorTxt').textContent=por==='lote'?'Lote':'Código do item';
   $('valorIn').placeholder=por==='lote'?'Bipe ou digite o lote':'Bipe ou digite o código';
   const m={};Object.values(estoque).forEach(e=>{const k=por==='lote'?e.lote:e.produto;if(k&&!m[k])m[k]=por==='lote'?(e.descricao||''):(e.descricao||'')});
@@ -647,7 +689,7 @@ function escopo(c){
   const ends=new Set([...(c.valor?[c.valor]:[]),...Object.values(c.itens).map(i=>i.endereco),...Object.keys(c.vazios||{})]);
   return all.filter(e=>ends.has(e.endereco));
 }
-const titulo=c=>c.por==='endereco'?(c.valor?'Endereço '+c.valor:'Endereçamento'):c.por==='baia'?nomeGrupo(c.valor):(c.por==='item'?'Item ':'Lote ')+c.valor;
+const titulo=c=>c.por==='endereco'?(c.valor?'Endereço '+c.valor:'Endereçamento'):c.por==='baia'?nomeGrupo(c.valor):c.por==='vazio'?'Endereços vazios · '+(c.valor==='*'?'todos os armazéns':nomeGrupo(c.valor)):(c.por==='item'?'Item ':'Lote ')+c.valor;
 function renderOrg(){
   const e=limpa($('inEnd').value);
   $('orgBox').hidden=!e||!cur; if(!e||!cur) return;
@@ -657,7 +699,9 @@ function renderOrg(){
 }
 function renderCont(){
   renderSess();$('recBox').hidden=!!cur;
-  $('novaBox').hidden=!!cur||!sess; $('contBox').hidden=!cur;
+  $('novaBox').hidden=!!cur||!sess;
+  const vzC=!!cur&&cur.por==='vazio';$('contBox').hidden=!cur||vzC;$('vzBox').hidden=!vzC;
+  if(vzC){$('resBox').hidden=true;renderVz();return}
   $('resBox').hidden=!!cur||!ultimo||!sess;
   if(ultimo&&!cur)$('resBox').innerHTML=auditoria(ultimo);
   if(!cur){$('ultBip').hidden=true;return}
@@ -673,7 +717,7 @@ function renderCont(){
   $('ondeBox').hidden=!Object.keys(og).length;
   $('ondeChips').innerHTML=Object.keys(og).sort().map(e=>`<span class="chip ${og[e].b>=og[e].t?'ok':'off'}">${esc(e)} · ${og[e].b}/${og[e].t}</span>`).join('');
   const vz=Object.keys(cur.vazios||{});
-  $('contItens').innerHTML=(its.length||vz.length)?its.map(([ua,i])=>`<div><span class="ua">${esc(ua)}</span>${fixo?'':addr(i.endereco)}${i.kg==null?'':'<span>'+kgf(i.kg)+' kg</span>'}${chipSt(i)}<span class="sp"></span>
+  $('contItens').innerHTML=(its.length||vz.length)?its.map(([ua,i])=>`<div><span class="ua">${esc(ua)}</span>${fixo?'':addr(i.endereco)}${i.kgs==null?'':'<span class="qsis">'+kgf(i.kgs)+' kg no sistema</span>'}${chipSt(i)}${extraChips(i)}<span class="sp"></span>
     <button class="btn ghost small" type="button" data-rm="${esc(ua)}">Remover</button></div>`).join('')+
     vz.map(e=>`<div>${addr(e)}<span class="sub">endereço vazio</span></div>`).join('')
     :'<p class="empty">Nenhuma UA registrada ainda.</p>';
@@ -683,15 +727,17 @@ function aplicaSaldo(r){if(!r)return;(r.removidas||[]).forEach(k=>{delete estoqu
 async function sinc(ends,uas,extra){if(!window.__sincSaldo)return;try{aplicaSaldo(await window.__sincSaldo(ends,uas,extra))}catch(e){}}
 const txtSt=i=>!i.st?'consultando…':i.st==='ok'?'Correto':i.st==='div'?'Divergente: no sistema está em '+i.sis:(aoVivo()?'UA sem saldo no sistema':'Fora do estoque carregado');
 const chipSt=i=>`<span class="chip ${!i.st?'off':i.st==='ok'?'ok':i.st==='div'?'warn':(aoVivo()?'crit':'off')}">${esc(txtSt(i))}</span>`;
-function mostraBip(ua){const i=cur&&cur.itens[ua],b=$('ultBip');if(!i){b.hidden=true;return}b.hidden=false;b.className='bip '+(i.st||'');b.textContent='UA '+ua+' · '+txtSt(i)}
+function mostraBip(ua){const i=cur&&cur.itens[ua],b=$('ultBip');if(!i){b.hidden=true;return}b.hidden=false;const al=i.st==='ok'&&(i.bloq>0||(i.venc&&diasPara(i.venc)<0)||(i.kg!=null&&i.kgs!=null&&Math.abs(i.kg-i.kgs)>i.kgs*tol()));b.className='bip '+(al?'sem':i.st||'');b.textContent='UA '+ua+' · '+txtSt(i)+extraTxt(i)}
 async function verificaUa(c,ua){
   await sinc([],[ua]);
   const i=c.itens[ua];if(!i||c.status!=='aberta')return;
   const s=estoque[ua],st=!s?'sem':s.endereco===i.endereco?'ok':'div',sis=s?s.endereco:'';
-  if(i.st!==st||i.sis!==sis){i.st=st;i.sis=sis;i.sem=st==='sem';putContagem(c)}
+  const antes=JSON.stringify(i);i.st=st;i.sis=sis;i.sem=st==='sem';i.kgs=s?Number(s.kg)||0:null;i.venc=s?dIso(s.venc):'';i.bloq=s?Number(s.bloq)||0:0;i.res=s?Number(s.res)||0:0;
+  if(JSON.stringify(i)!==antes)putContagem(c);
   if(cur===c){renderCont();mostraBip(ua)}
 }
 async function iniciar(){
+  if(por==='vazio')return iniciarVazio();
   const campo=por==='endereco'?$('novoEnd'):$('valorIn');
   const valor=por==='endereco'?limpa(campo.value):campo.value.trim().toUpperCase();
   if(!valor){toast(por==='endereco'?'Informe o endereço.':por==='lote'?'Informe o lote.':'Informe o código do item.');campo.focus();return}
@@ -702,6 +748,7 @@ async function iniciar(){
     if(!escopo({por,valor,itens:{}}).length){toast('Nenhuma UA com saldo para '+(por==='lote'?'o lote ':'o item ')+valor+'.');return}
   }
   cur={id:'c'+Date.now().toString(36)+DEV.slice(0,4),dev:DEV,por,valor,sessao:sess?sess.id:'',operador:uid||'',inicio:iso(),status:'aberta',itens:{},org:{},vazios:{}};
+  $('confKg').checked=$('novoQtd').checked;
   ultimo=null; putContagem(cur); campo.value=''; $('inEnd').value=por==='endereco'?valor:''; renderCont();
   (por==='endereco'?$('inUa'):$('inEnd')).focus();
   if(por==='endereco')sinc([valor],[]);
@@ -714,7 +761,7 @@ function registrar(){
   if($('confKg').checked){
     kg=numIn($('inKg').value);
     if(kg===null){$('inKg').focus();return}
-    if(isNaN(kg)){toast('Peso inválido. Use só números, ex.: 742,5');$('inKg').focus();return}
+    if(isNaN(kg)){toast('Quantidade inválida. Use só números, ex.: 742,5');$('inKg').focus();return}
   }
   if(cur.itens[ua]){toast('UA '+ua+' já foi bipada nesta contagem.');$('inUa').value='';bipPrev=0;$('inKg').value='';$('inUa').focus();return}
   cur.itens[ua]={endereco:e,kg,hora:iso()};
@@ -724,7 +771,7 @@ function registrar(){
 }
 function finalizar(){
   const c=cur,escp=escopo(c),noEsc=new Set(escp.map(s=>s.ua)),its=c.itens,agora=iso(),T=tol();
-  const r={escopo:escp.length,contadas:0,endOk:0,kgContadas:0,kgOk:0,kgSist:0,kgFis:0,nEnd:0,nKg:0,nNao:0,nSobra:0,esperadas:escp.length,kgEsc:0,kgCerto:0,kgFalta:0,kgFora:0};
+  const r={escopo:escp.length,contadas:0,endOk:0,kgContadas:0,kgOk:0,kgSist:0,kgFis:0,nEnd:0,nKg:0,nNao:0,nSobra:0,nVenc:0,nBloq:0,kgBloq:0,esperadas:escp.length,kgEsc:0,kgCerto:0,kgFalta:0,kgFora:0};
   const novos=[],det=[];
   const mk=(ua,tipo,sist,fis,s)=>novos.push({id:`${c.id}-${ua}-${tipo}`,contagem:c.id,ua,tipo,sist,fis,status:'pendente',criado:agora,por:'',em:'',motivo:'',
     prod:s?s.produto:'',desc:s?s.descricao:'',lote:s?s.lote:'',kg:s?Number(s.kg)||0:0,endRef:(s?s.endereco:fis)||''});
@@ -732,6 +779,8 @@ function finalizar(){
     const i=its[ua],s=estoque[ua]; r.contadas++;
     if(!s){r.nSobra++;r.escopo++;mk(ua,'sobra',null,i.endereco,null);det.push({ua,baia:baiaDe(i.endereco),prod:'',end:0,kg:null,dk:0,ks:0,sem:1});continue}
     const ks=Number(s.kg)||0;
+    if(vencAlerta(s.venc))r.nVenc++;
+    if(Number(s.bloq)>0){r.nBloq++;r.kgBloq+=Number(s.bloq)}
     if(!noEsc.has(ua)){r.escopo++;r.kgFora+=ks}
     const eo=s.endereco===i.endereco?1:0;
     if(eo){r.endOk++;r.kgCerto+=ks} else{r.nEnd++;mk(ua,'end',s.endereco,i.endereco,s)}
@@ -755,6 +804,7 @@ function porEndereco(c,as){
   return l.length>1?`<h3>Resultado por endereço</h3><div class="scroll"><table><thead><tr><th>Endereço</th><th class="num">UAs bipadas</th><th class="num">Corretas</th><th class="num">Divergentes</th><th class="num">Não encontradas</th><th></th></tr></thead><tbody>${l.map(x=>`<tr><td>${addr(x.e)}</td><td class="num">${x.bip}</td><td class="num">${x.ok}</td><td class="num">${x.bip-x.ok}</td><td class="num">${x.nao}</td><td>${x.bip===x.ok&&!x.nao?'<span class="chip ok">Correto</span>':'<span class="chip crit">Divergente</span>'}</td></tr>`).join('')}</tbody></table></div>`:'';
 }
 function auditoria(c,emb){
+  if(c.por==='vazio')return auditoriaVz(c,emb);
   const r=c.resumo,as=Object.values(ajustes).filter(a=>a.contagem===c.id),n=r.nEnd+r.nKg+r.nNao+r.nSobra;
   const pd=ua=>{const s=estoque[ua];return s?esc(s.descricao):''},by=t=>as.filter(a=>a.tipo===t);
   const sec=(t,cls,l,cab,lin)=>l.length?`<h3>${t} <span class="chip ${cls}">${l.length}</span></h3><div class="scroll"><table><thead><tr>${cab.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${l.map(lin).join('')}</tbody></table></div>`:'';
@@ -766,12 +816,12 @@ function auditoria(c,emb){
   ${sec('Bipadas aqui, mas o sistema aponta outro endereço','warn',by('end'),['UA','Produto','Bipada em','No sistema está em'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td>${addr(a.fis)}</td><td>${addr(a.sist)}</td></tr>`)}
   ${sec('No sistema neste endereço, mas não bipadas','crit',by('nao'),['UA','Produto','Endereço no sistema','Kg'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td>${addr(a.sist)}</td><td class="num">${kgf(estoque[a.ua]&&estoque[a.ua].kg)}</td></tr>`)}
   ${sec('UAs sem saldo no sistema','crit',by('sobra'),['UA','Bipada em'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${addr(a.fis)}</td></tr>`)}
-  ${sec('Peso divergente','warn',by('kg'),['UA','Produto','Sistema','Físico','Diferença'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td class="num">${kgf(a.sist)}</td><td class="num">${kgf(a.fis)}</td><td class="num">${sinal(a.fis-a.sist)}</td></tr>`)}
+  ${sec('Quantidade divergente (kg)','warn',by('kg'),['UA','Produto','Sistema','Contado','Diferença'],a=>`<tr><td class="ua">${esc(a.ua)}</td><td>${pd(a.ua)}</td><td class="num">${kgf(a.sist)}</td><td class="num">${kgf(a.fis)}</td><td class="num">${sinal(a.fis-a.sist)}</td></tr>`)}
   <div class="row">${emb?'':'<button class="btn" type="button" data-novo="1">Nova contagem</button>'}${n?'<button class="btn ghost" type="button" data-go="ajustes">Ver na aba Ajustes</button>':''}<button class="btn ghost" type="button" data-pdfaud="${esc(c.id)}">PDF desta auditoria</button>${emb?'':'<button class="btn ghost" type="button" data-reldia="1">Ver na Acuracidade</button>'}</div>`;
 }
 
 /* ---------- recontagem ---------- */
-const TIPO={end:['Endereço','warn'],kg:['Peso','warn'],nao:['Não encontrada','crit'],sobra:['Sem saldo no sistema','crit']};
+const TIPO={end:['Endereço','warn'],kg:['Quantidade','warn'],vz:['Vazio com UA','crit'],nao:['Não encontrada','crit'],sobra:['Sem saldo no sistema','crit']};
 function renderRec(){
   const l=Object.values(ajustes).filter(a=>a.status==='recontar');
   $('nRec').hidden=!l.length;$('nRec').textContent=l.length;
@@ -793,7 +843,7 @@ function gravaRecont(){
   let st='confirmada';
   if(a.tipo==='kg'){
     const kg=numIn($('rcKg').value);
-    if(kg===null||isNaN(kg)){toast('Informe o peso, ex.: 742,5');$('rcKg').focus();return}
+    if(kg===null||isNaN(kg)){toast('Informe a quantidade em kg, ex.: 742,5');$('rcKg').focus();return}
     if(s&&Math.abs(kg-s.kg)<=s.kg*T) st='sem_divergencia'; else a.fis=kg;
   }else{
     if(!nao&&!e){toast('Bipe o endereço ou marque UA não encontrada.');$('rcEnd').focus();return}
@@ -810,7 +860,7 @@ function gravaRecont(){
 
 /* ---------- ajustes ---------- */
 const auto=a=>a.tipo==='end'||a.tipo==='kg';
-const VIS={mov:['end','Movimentação'],sem:['sobra','Sem saldo'],nao:['nao','Não encontradas'],kg:['kg','Peso']};
+const VIS={mov:['end','Movimentação'],sem:['sobra','Sem saldo'],nao:['nao','Não encontradas'],kg:['kg','Quantidade'],vz:['vz','Vazio com UA']};
 let ajV='mov';const semRes={},semUas={};
 function ondeLote(lote){
   const L=String(lote||'').trim().toUpperCase(),m={};if(!L)return[];
@@ -828,7 +878,7 @@ async function buscaLote(id){
   semRes[id]=r;renderAj();
 }
 const motSel=a=>`<select class="sm" aria-label="Motivo de ${esc(a.ua)}" data-mot="${esc(a.id)}"><option value="">Sem motivo</option>${MOTIVOS.map(m=>`<option ${a.motivo===m?'selected':''}>${m}</option>`).join('')}</select>`;
-const feitoChip=a=>{const lab=a.status==='sem_divergencia'?'Sem divergência na recontagem':a.manual?'Ajustada manualmente'+(a.conferido?' · conferida no WMS':''):a.movido?'Movimentada no WMS':auto(a)?'Ajustado':'Encerrada';
+const feitoChip=a=>{const lab=a.status==='sem_divergencia'?'Sem divergência na recontagem':a.manual?'Ajustada manualmente'+(a.conferido?' · conferida no WMS':''):a.movido?'Movimentada no WMS':a.tipo==='end'?'Ajustado':'Encerrada';
   return `<span class="chip ok">${lab}</span> <span class="sub">${esc(nome(a.por||a.recPor))} ${dtf(a.em)}</span>`};
 function semHtml(a,ab){
   const c=contagens[a.contagem],id=esc(a.id),r=semRes[a.id]||{},rec=a.status==='recontar',s=estoque[a.ua];
@@ -853,40 +903,40 @@ function semHtml(a,ab){
 const NOTA={mov:'O ajuste grava na cópia do estoque deste app o endereço encontrado no físico.',
   sem:'UA encontrada no físico sem saldo no WMS. Informe o lote que está na etiqueta para ver em quais endereços está o restante do lote, regularize no WMS e depois encerre.',
   nao:'UAs que o sistema aponta no endereço auditado, mas que não foram bipadas. Peça a recontagem ou encerre depois de tratar.',
-  kg:'O ajuste de peso fica só neste app. No WMS, o acerto de quantidade continua sendo feito pelo processo de inventário.'};
+  vz:'Endereços que o sistema diz estarem vazios, mas onde o auditor encontrou UA. Identifique a UA no local, regularize no WMS e encerre.',
+  kg:'UAs em que a quantidade contada (kg) não bateu com o sistema. O app não altera quantidade no WMS: peça a recontagem ou encerre depois de tratar pelo processo de inventário.'};
 function renderAj(){
   const all=Object.values(ajustes),abertos=all.filter(aberto),ab=ajF==='aberto';
   const nAj=abertos.filter(a=>a.status!=='recontar').length;
   $('nPend').hidden=!nAj;$('nPend').textContent=nAj;
   document.querySelectorAll('#ajFiltro button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===ajF));
   const base=ab?abertos:all.filter(a=>!aberto(a));
-  if(ajV==='kg'&&!all.some(a=>a.tipo==='kg')) ajV='mov';
-  $('ajVis').innerHTML=Object.entries(VIS).filter(([k])=>k!=='kg'||all.some(a=>a.tipo==='kg')).map(([k,v])=>`<button type="button" data-v="${k}" aria-pressed="${ajV===k}">${v[1]} (${base.filter(a=>a.tipo===v[0]).length})</button>`).join('');
+  $('ajVis').innerHTML=Object.entries(VIS).map(([k,v])=>`<button type="button" data-v="${k}" aria-pressed="${ajV===k}">${v[1]} (${base.filter(a=>a.tipo===v[0]).length})</button>`).join('');
   const tipo=VIS[ajV][0],kg=ajV==='kg',mov=ajV==='mov';
   $('ajNota').textContent=mov&&aoVivo()?'Movimentar no WMS transfere a UA do endereço do sistema para o endereço onde ela foi encontrada. O app valida origem e destino antes e confere o resultado depois. Se a UA já estiver no endereço certo, a divergência só é encerrada.':NOTA[ajV];
   const lista=base.filter(a=>a.tipo===tipo).sort((a,b)=>(b.em||b.criado).localeCompare(a.em||a.criado));
   [...sel].forEach(id=>{const a=ajustes[id];if(!a||!aberto(a)||a.status==='recontar'||a.tipo!==tipo)sel.delete(id)});
   const vivo=mov&&aoVivo();
-  $('btnLote').hidden=!ab||!(mov||kg);$('btnLote').disabled=!sel.size;$('btnLote').textContent=(vivo?'Movimentar selecionadas':'Ajustar selecionadas')+(sel.size?` (${sel.size})`:'');
+  $('btnLote').hidden=!ab||!mov;$('btnLote').disabled=!sel.size;$('btnLote').textContent=(vivo?'Movimentar selecionadas':'Ajustar selecionadas')+(sel.size?` (${sel.size})`:'');
   if(!sel.size)$('loteConf').hidden=true;
-  if(!lista.length){$('ajLista').innerHTML=`<p class="empty">${!ready?'Carregando…':!ab?'Nada no histórico ainda.':mov?'Nenhuma UA com endereço divergente em aberto. Elas aparecem aqui quando uma auditoria é finalizada.':ajV==='sem'?'Nenhuma UA sem saldo em aberto.':ajV==='nao'?'Nenhuma UA não encontrada em aberto.':'Nenhuma divergência de peso em aberto.'}</p>`;return}
+  if(!lista.length){$('ajLista').innerHTML=`<p class="empty">${!ready?'Carregando…':!ab?'Nada no histórico ainda.':mov?'Nenhuma UA com endereço divergente em aberto. Elas aparecem aqui quando uma auditoria é finalizada.':ajV==='sem'?'Nenhuma UA sem saldo em aberto.':ajV==='nao'?'Nenhuma UA não encontrada em aberto.':'Nenhuma divergência de quantidade em aberto. Elas aparecem quando a contagem é feita com "Conferir quantidade" marcado.'}</p>`;return}
   if(ajV==='sem'){
     const f=document.activeElement;if(f&&f.dataset&&f.dataset.lote&&$('ajLista').contains(f))return;
     $('ajLista').innerHTML=lista.map(a=>semHtml(a,ab)).join('');return}
-  $('ajLista').innerHTML=`<table class="ajT"><thead><tr>${ab&&!ajV.startsWith('n')?'<th></th>':''}<th>UA</th><th>Item</th><th class="num">Kg</th><th>No sistema</th><th>${kg?'Físico':'Encontrada em'}</th>${kg?'<th class="num">Diferença</th>':''}<th>Motivo</th><th>Auditoria</th><th>${ab?'':'Situação'}</th></tr></thead><tbody>`+
+  $('ajLista').innerHTML=`<table class="ajT"><thead><tr>${ab&&mov?'<th></th>':''}<th>UA</th><th>Item</th><th class="num">Kg</th><th>No sistema</th><th>${kg?'Físico':'Encontrada em'}</th>${kg?'<th class="num">Diferença</th>':''}<th>Motivo</th><th>Auditoria</th><th>${ab?'':'Situação'}</th></tr></thead><tbody>`+
   lista.map(a=>{
     const s=estoque[a.ua],c=contagens[a.contagem],id=esc(a.id),rec=a.status==='recontar';
-    const sis=kg?kgf(a.sist)+' kg':addr(a.de||a.sist),fis=kg?kgf(a.fis)+' kg':(a.tipo==='nao'?'<span class="sub">não bipada</span>':addr(a.fis));
+    const sis=kg?kgf(a.sist)+' kg':a.tipo==='vz'?'<span class="sub">vazio no sistema</span>':addr(a.de||a.sist),fis=kg?kgf(a.fis)+' kg':(a.tipo==='nao'?'<span class="sub">não bipada</span>':addr(a.fis));
     let acao,mot;
     if(ab){
       mot=rec?'':motSel(a);
       acao=rec?'<span class="chip warn">Aguardando recontagem</span>'
-        :(auto(a)?`<button class="btn small" type="button" data-aj="${id}">${vivo?'Movimentar no WMS':'Ajustar'}</button> `:`<button class="btn small" type="button" data-aj="${id}">Encerrar</button> `)
+        :(mov?`<button class="btn small" type="button" data-aj="${id}">${vivo?'Movimentar no WMS':'Ajustar'}</button> `:`<button class="btn small" type="button" data-aj="${id}">Encerrar</button> `)
          +(mov?`<button class="btn ghost small" type="button" data-man="${id}">Feito manual</button> `:'')
-         +(a.status==='pendente'?`<button class="btn ghost small" type="button" data-rc="${id}">Recontar</button>`:'<span class="chip off">Recontada</span>');
+         +(a.tipo==='vz'?'':a.status==='pendente'?`<button class="btn ghost small" type="button" data-rc="${id}">Recontar</button>`:'<span class="chip off">Recontada</span>');
     }else{mot=esc(a.motivo||'');acao=feitoChip(a)}
     const d=descAj(a),lt=loteAj(a);
-    return `<tr>${ab&&!ajV.startsWith('n')?`<td class="csel">${!rec?`<input type="checkbox" aria-label="Selecionar ${esc(a.ua)}" data-sel="${id}" ${sel.has(a.id)?'checked':''}>`:''}</td>`:''}
+    return `<tr>${ab&&mov?`<td class="csel">${!rec?`<input type="checkbox" aria-label="Selecionar ${esc(a.ua)}" data-sel="${id}" ${sel.has(a.id)?'checked':''}>`:''}</td>`:''}
       <td class="ua cua">${esc(a.ua)}</td>
       <td class="citem">${d?esc(d):'<span class="sub">—</span>'}${lt?'<br><span class="sub">lote '+esc(lt)+'</span>':''}</td>
       <td class="num" data-l="Kg">${kg?'':kgf(kgAj(a))}</td><td data-l="No sistema">${sis}</td><td data-l="${kg?'Físico':'Encontrada em'}">${fis}</td>
@@ -922,7 +972,7 @@ async function ajustar(id){
     if(s0&&s0.endereco===a.fis){a.de=de;return fecha(true)}
     toast('O WMS recebeu o pedido, mas a UA '+a.ua+' ainda aparece em '+(s0?s0.endereco:'nenhum endereço')+'. Confira de novo em instantes.');return false}
   const s=estoque[a.ua];
-  if(auto(a)&&s){ if(a.tipo==='end') s.endereco=a.fis; else s.kg=a.fis; putEstoque(s); }
+  if(a.tipo==='end'&&s){ s.endereco=a.fis; putEstoque(s); }
   a.status='ajustado';a.por=uid||'';a.em=iso();sel.delete(id);putAjuste(a);return true;
 }
 
@@ -978,7 +1028,7 @@ function dadosAc(o){
   const mt=NOME_META[cfg.metaTipo]?cfg.metaTipo:'ua',metas={ua:Number(cfg.metaEnd),kg:Number(cfg.metaKg),geral:Number(cfg.metaGeral??98)},val={ua:pe,kg:pk,geral:pg};
   const ds=[...new Set(fs.map(c=>diaKey(c.fim)))].sort();
   const S=o.sess&&sessoes[o.sess],perTxt=S?'auditoria de '+dtf(S.inicio)+(S.fim?' às '+new Date(S.fim).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''):o.so?(fs[0]?titulo(fs[0])+', '+dtf(fs[0].fim):''):de||ate?(de&&de===ate?brDia(de):(de?brDia(de):'início')+' a '+(ate?brDia(ate):'hoje')):(ds.length?(ds.length===1?brDia(ds[0]):brDia(ds[0])+' a '+brDia(ds[ds.length-1])):'todo o histórico');
-  const tipos=[['end','Endereço divergente'],['nao','Não encontrada'],['sobra','Sem saldo no sistema'],['kg','Peso divergente']].map(([k,l])=>{const x=as.filter(a=>a.tipo===k);return{k,l,n:x.length,kg:x.reduce((s,a)=>s+kgAj(a),0)}});
+  const tipos=[['end','Endereço divergente'],['nao','Não encontrada'],['sobra','Sem saldo no sistema'],['kg','Quantidade divergente'],['vz','UA em endereço vazio']].map(([k,l])=>{const x=as.filter(a=>a.tipo===k);return{k,l,n:x.length,kg:x.reduce((s,a)=>s+kgAj(a),0)}});
   const grp=fn=>{const m={};as.forEach(a=>{const k=fn(a);if(!k)return;const x=m[k]||(m[k]={k,n:0,kg:0});x.n++;x.kg+=kgAj(a)});return Object.values(m).sort((a,b)=>b.n-a.n||b.kg-a.kg||a.k.localeCompare(b.k))};
   const baias=agrega(d=>d.baia,fs).map(x=>({k:x.k,n:x.n,div:x.n-x.endOk,pe:pct(x.endOk,x.n),pk:pct(x.ksOk,x.ks),ks:x.ks,kgDiv:x.ks-x.ksOk,sem:x.sem})).sort((a,b)=>a.k.localeCompare(b.k));
   let ant=null;
@@ -986,6 +1036,7 @@ function dadosAc(o){
     ant=dadosAc({per:{de:dk(n),ate:dk(1)},semAnt:true});if(!ant.fs.length)ant=null}
   return {fs,as,t,de,ate,perTxt,ant,so:o.so||'',uas:t.escopo||0,kgAud,divUa:(t.escopo||0)-(t.endOk||0),divKg:kgAud-(t.kgCerto||0),sem:t.nSobra||0,pe,pk,pg,mt,metas,val,
     naMeta:val[mt]==null?null:val[mt]>=metas[mt],tipos,baias,ends:grp(endDe),prods:grp(prodDe),mots:grp(a=>a.motivo),
+    pq:pct(t.kgOk||0,t.kgContadas||0),qtdN:t.kgContadas||0,qtdOk:t.kgOk||0,nVenc:t.nVenc||0,nBloq:t.nBloq||0,kgBloq:t.kgBloq||0,
     abertas:as.filter(aberto).length,resolvidas:as.filter(a=>!aberto(a)).length,serie:serieDias(fs)};
 }
 const qt=(D,k)=>{const x=D.tipos.find(t=>t.k===k);return x?x.n:0},qkg=(D,k)=>{const x=D.tipos.find(t=>t.k===k);return x?x.kg:0};
@@ -1015,6 +1066,7 @@ function conclusao(D){
     (D.divUa?`Das ${D.as.length} divergências registradas, ${D.resolvidas} já ${D.resolvidas===1?'foi tratada':'foram tratadas'} e ${D.abertas} ${D.abertas===1?'segue':'seguem'} em aberto.`:'Não houve divergência a tratar.');
 }
 function renderCfg(){
+  if(document.activeElement!==$('cfVenc'))$('cfVenc').value=nf(cfg.venc??30);
   [['cfMetaEnd','metaEnd'],['cfMetaKg','metaKg'],['cfMetaGeral','metaGeral'],['cfTol','tol']].forEach(([i,k])=>{if(document.activeElement!==$(i))$(i).value=nf(cfg[k]??98)});
   if(document.activeElement!==$('cfEmails'))$('cfEmails').value=cfg.emails||'';
   document.querySelectorAll('#cfMetaTipo button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mt===(cfg.metaTipo||'ua')));
@@ -1066,7 +1118,7 @@ function renderAc(){
   const n=(tit,v,sub)=>`<div class="mini"><span class="t">${tit}</span><b>${fs.length?v:'—'}</b><span class="sub">${fs.length?sub:''}</span></div>`;
   $('acHero').innerHTML=k('Acuracidade por UA',D.pe,mE,'ua')+k('Acuracidade por kg',D.pk,mK,'kg')+k('Acuracidade geral',D.pg,D.metas.geral,'geral')+
     n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes (total)',D.divUa,kgf(D.divKg)+' kg')+
-    n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'));
+    n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Quantidade conferida',D.qtdN?pctf(D.pq):'—',D.qtdN?D.qtdOk+' de '+D.qtdN+' conferem':'não conferida')+n('Vencidas ou a vencer',D.nVenc,'entre as auditadas')+n('Bloqueadas',D.nBloq,kgf(D.kgBloq)+' kg')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'));
   /* auditorias: a mais recente já abre com o resultado */
   if(acAberta===null&&fs.length)acAberta=fs[0].id;
   $('acTit').textContent='Contagens'+(fs.length?' · '+D.perTxt:'');
@@ -1094,7 +1146,7 @@ function renderAc(){
   $('acOper').innerHTML=os.length?'<table><thead><tr><th>Quem auditou</th><th class="num">Auditorias</th><th class="num">UAs</th><th class="num">UAs divergentes</th></tr></thead><tbody>'+
     os.map(x=>`<tr><td>${esc(x.k==='-'?'Não identificado':nome(x.k))}</td><td class="num">${x.cs.size}</td><td class="num">${x.n}</td><td class="num">${x.n-x.endOk}</td></tr>`).join('')+'</tbody></table>':vazio;
 }
-const divTxt=r=>[[r.nEnd,'endereço'],[r.nKg,'peso'],[r.nNao,'não encontrada'],[r.nSobra,'sem saldo']].filter(x=>x[0]).map(x=>x[0]+' '+x[1]).join(', ');
+const divTxt=r=>[[r.nEnd,'endereço'],[r.nKg,'quantidade'],[r.nNao,'não encontrada'],[r.nSobra,'sem saldo'],[r.vzUa,'vazio com UA']].filter(x=>x[0]).map(x=>x[0]+' '+x[1]).join(', ');
 
 /* ---------- relatório em PDF e e-mail ---------- */
 const SIT={pendente:'Em aberto',recontar:'Aguardando recontagem',confirmada:'Confirmada na recontagem',ajustado:'Tratada',sem_divergencia:'Sem divergência na recontagem'};
@@ -1159,7 +1211,7 @@ function gerarPdf(D){
   const st=(p,m)=>p==null?'Sem dados':p>=m?'Dentro da meta':'Abaixo da meta';
   tabela(['Indicador','Resultado','Meta','Diferença','Status'],[['ua','Acuracidade por UA'],['kg','Acuracidade por kg'],['geral','Acuracidade geral (média de UA e kg)']].map(([k,l])=>{const p=D.val[k],m=D.metas[k];
     return [l+(D.mt===k?' - meta em uso':''),pctf(p),nf(m)+'%',p==null?'-':sinal(Math.round((p-m)*10)/10)+' p.p.',st(p,m)]}),corStatus(4));
-  tabela(['Indicador','Quantidade'],[['UAs auditadas',D.uas],['Kg auditados',kgf(D.kgAud)+' kg'],['UAs no endereço correto',D.t.endOk||0],['UAs divergentes',D.divUa],['Kg divergente',kgf(D.divKg)+' kg'],['UAs sem saldo no sistema',D.sem]]);
+  tabela(['Indicador','Quantidade'],[['UAs auditadas',D.uas],['Kg auditados',kgf(D.kgAud)+' kg'],['UAs no endereço correto',D.t.endOk||0],['UAs divergentes',D.divUa],['Kg divergente',kgf(D.divKg)+' kg'],['UAs sem saldo no sistema',D.sem],['Quantidade: UAs conferidas',D.qtdN],['Quantidade: UAs que conferem',D.qtdOk+(D.qtdN?'  ('+pctf(D.pq)+')':'')],['UAs vencidas ou a vencer (entre as auditadas)',D.nVenc],['UAs bloqueadas (entre as auditadas)',D.nBloq+'  ('+kgf(D.kgBloq)+' kg)']]);
   /* composição */
   if(D.uas){pag('Composição do resultado','Como as UAs e o peso auditados se dividem entre o que estava correto e o que divergiu.');const q=k=>(D.tipos.find(x=>x.k===k)||{n:0}).n;
     empilha('UAs auditadas: '+D.uas,[{l:'No endereço correto',v:D.t.endOk||0,cor:V},{l:'Endereço divergente',v:q('end'),cor:O},{l:'Não encontradas',v:q('nao'),cor:R},{l:'Sem saldo no sistema',v:q('sobra'),cor:[120,40,40]}]);
@@ -1177,12 +1229,12 @@ function gerarPdf(D){
   if(tp.length){pag('Divergências por tipo');barras(tp.map(x=>({l:x.l,v:x.n,t:uasTxt(x.n),cor:x.k==='end'||x.k==='kg'?O:R})));
     tabela(['Tipo de divergência','UAs','Kg','Participação'],tp.map(x=>[x.l,x.n,kgf(x.kg),pctf(pct(x.n,D.as.length))]))}
   /* por baia */
-  if(D.baias.length){pag('Acuracidade por baia e porta-palete','Acuracidade por UA de cada local auditado no período. Meta por UA: '+nf(D.metas.ua)+'%.');
+  if(D.baias.length){pag('Acuracidade por armazém','Acuracidade por UA de cada local auditado no período. Meta por UA: '+nf(D.metas.ua)+'%.');
     barras(D.baias.slice(0,12).map(x=>({l:nomeGrupo(x.k),v:x.pe||0,max:100,t:pctf(x.pe)+'  ('+uasTxt(x.n)+')',cor:x.pe>=D.metas.ua?V:R})));
     const bd=D.baias.filter(x=>x.div).sort((a,b)=>b.kgDiv-a.kgDiv||b.div-a.div);
-    if(bd.length){pag('Divergência em kg por baia e porta-palete','Onde está concentrado o peso divergente (não encontrado ou fora do endereço).');
+    if(bd.length){pag('Divergência em kg por armazém','Onde está concentrado o peso divergente (não encontrado ou fora do endereço).');
       barras(bd.slice(0,12).map(x=>({l:nomeGrupo(x.k),v:x.kgDiv||0.001,t:kgf(x.kgDiv)+' kg  ('+uasTxt(x.div)+')'})),R)}
-    pag('Resultado por baia e porta-palete');
+    pag('Resultado por armazém');
     tabela(['Local','UAs auditadas','UAs divergentes','Acuracidade por UA','Acuracidade por kg','Kg auditado','Kg divergente','Sem saldo','Status'],
       D.baias.map(x=>[nomeGrupo(x.k),x.n,x.div,pctf(x.pe),pctf(x.pk),kgf(x.ks),kgf(x.kgDiv),x.sem,st(x.pe,D.metas.ua)]),corStatus(8))}
   /* maiores divergências */
@@ -1198,8 +1250,8 @@ function gerarPdf(D){
     tabela(['UA','Encontrada em','Lote da etiqueta','Motivo','Situação'],by('sobra').map(a=>[a.ua,a.fis||'',a.lote||'não informado',a.motivo||'',sitAj(a)]),corStatus(4))}
   if(by('nao').length){pag('UAs não encontradas','UAs que o sistema aponta no endereço auditado, mas que não foram bipadas.');
     tabela(['UA','Item','Lote','Kg','Endereço no sistema','Motivo','Situação'],by('nao').map(a=>[a.ua,descAj(a),loteAj(a),kgf(kgAj(a)),a.sist||'',a.motivo||'',sitAj(a)]),corStatus(6))}
-  if(by('kg').length){pag('UAs com peso divergente');
-    tabela(['UA','Item','Kg no sistema','Kg físico','Diferença','Situação'],by('kg').map(a=>[a.ua,descAj(a),kgf(a.sist),kgf(a.fis),sinal(a.fis-a.sist),sitAj(a)]),corStatus(5))}
+  if(by('kg').length){pag('UAs com quantidade divergente','UAs em que a quantidade contada (kg) não bateu com o saldo do sistema.');
+    tabela(['UA','Item','Kg no sistema','Kg contado','Diferença','Situação'],by('kg').map(a=>[a.ua,descAj(a),kgf(a.sist),kgf(a.fis),sinal(a.fis-a.sist),sitAj(a)]),corStatus(5))}
   if(D.mots.length){pag('Causas das divergências','Motivos informados na aba Ajustes.');barras(D.mots.map(x=>({l:x.k,v:x.n,t:String(x.n)})),O)}
   if(D.serie.length>1){pag('Evolução da acuracidade por dia');curva(D.serie,D.metas[D.mt]==null?98:D.metas[D.mt]);colunas(D.serie);pag('Evolução da acuracidade por dia - números');
     tabela(['Dia','Auditorias','UAs auditadas','Por UA','Por kg','UAs divergentes','Kg divergente','Endereço div.','Não encontradas','Sem saldo'],D.serie.map(p=>[brDia(p.k),p.n,p.uas,pctf(p.end),pctf(p.kg),p.div,kgf(p.kgDiv),p.ne,p.nn,p.ns]))}
@@ -1281,7 +1333,7 @@ function renderCp(){
   const var_=(a,b,bom,p)=>{if(a==null||b==null)return'';const d=Math.round((a-b)*10)/10;if(!d)return'<span class="chip off">igual</span>';return`<span class="chip ${(d>0)===(bom>0)?'ok':'crit'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${p?' p.p.':''}</span>`};
   const card=(tit,a,b,m)=>`<div class="mini"><span class="t">${tit}</span><b class="${a==null?'':a>=m?'ok':'crit'}">${pctf(a)}</b><span class="sub">antes ${pctf(b)} ${var_(a,b,1,1)}</span></div>`;
   $('cpCards').innerHTML=card('Acuracidade por UA',A.pe,B.pe,A.metas.ua)+card('Acuracidade por kg',A.pk,B.pk,A.metas.kg)+card('Acuracidade geral',A.pg,B.pg,A.metas.geral);
-  const L=[['Auditorias',A.fs.length,B.fs.length,1],['UAs auditadas',A.uas,B.uas,1],['Kg auditados',A.kgAud,B.kgAud,1,1],['UAs divergentes (total)',A.divUa,B.divUa,-1],['Kg divergente',A.divKg,B.divKg,-1,1],['Endereço divergente',qt(A,'end'),qt(B,'end'),-1],['Não encontradas',qt(A,'nao'),qt(B,'nao'),-1],['UAs sem saldo no sistema',A.sem,B.sem,-1],['Divergências em aberto',A.abertas,B.abertas,-1]];
+  const L=[['Auditorias',A.fs.length,B.fs.length,1],['UAs auditadas',A.uas,B.uas,1],['Kg auditados',A.kgAud,B.kgAud,1,1],['UAs divergentes (total)',A.divUa,B.divUa,-1],['Kg divergente',A.divKg,B.divKg,-1,1],['Endereço divergente',qt(A,'end'),qt(B,'end'),-1],['Não encontradas',qt(A,'nao'),qt(B,'nao'),-1],['UAs sem saldo no sistema',A.sem,B.sem,-1],['Quantidade divergente (UAs)',qt(A,'kg'),qt(B,'kg'),-1],['Vencidas ou a vencer',A.nVenc,B.nVenc,-1],['Kg bloqueado',A.kgBloq,B.kgBloq,-1,1],['Divergências em aberto',A.abertas,B.abertas,-1]];
   $('cpTab').innerHTML=`<table><thead><tr><th>Indicador</th><th class="num">${esc(P.na)}<br><span class="sub">${esc(A.perTxt)}</span></th><th class="num">${esc(P.nb)}<br><span class="sub">${esc(B.perTxt)}</span></th><th>Variação</th></tr></thead><tbody>`+
     L.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[4]?kgf(r[1]):r[1]}</td><td class="num">${r[4]?kgf(r[2]):r[2]}</td><td>${var_(r[1],r[2],r[3])}</td></tr>`).join('')+'</tbody></table>';
   const mb={};A.baias.forEach(x=>{(mb[x.k]=mb[x.k]||{k:x.k}).a=x});B.baias.forEach(x=>{(mb[x.k]=mb[x.k]||{k:x.k}).b=x});
@@ -1301,7 +1353,7 @@ function resumoSess(id){
   const n=(tit,x,sub)=>`<div class="mini"><span class="t">${tit}</span><b>${x}</b><span class="sub">${sub}</span></div>`;
   return `<div class="row"><div class="grow"><h2>Resumo da auditoria</h2><p class="sub">${esc(D.perTxt)} · ${plural(D.fs.length,'contagem','contagens')}</p></div>
     <span class="chip ${D.naMeta?'ok':'crit'}">Meta ${NOME_META[D.mt]} (${nf(m)}%) ${D.naMeta?'atingida':'não atingida'}: ${pctf(v)}</span></div>
-  <div class="minis">${k('Acuracidade por UA',D.pe,D.metas.ua)+k('Acuracidade por kg',D.pk,D.metas.kg)+k('Acuracidade geral',D.pg,D.metas.geral)+n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes (total)',D.divUa,kgf(D.divKg)+' kg')+n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'))}</div>
+  <div class="minis">${k('Acuracidade por UA',D.pe,D.metas.ua)+k('Acuracidade por kg',D.pk,D.metas.kg)+k('Acuracidade geral',D.pg,D.metas.geral)+n('UAs auditadas',D.uas,kgf(D.kgAud)+' kg')+n('UAs divergentes (total)',D.divUa,kgf(D.divKg)+' kg')+n('Endereço divergente',qt(D,'end'),kgf(qkg(D,'end'))+' kg')+n('Não encontradas',qt(D,'nao'),kgf(qkg(D,'nao'))+' kg')+n('Sem saldo no sistema',D.sem,'UAs fora do WMS')+n('Quantidade conferida',D.qtdN?pctf(D.pq):'—',D.qtdN?D.qtdOk+' de '+D.qtdN+' conferem':'não conferida')+n('Vencidas ou a vencer',D.nVenc,'entre as auditadas')+n('Bloqueadas',D.nBloq,kgf(D.kgBloq)+' kg')+n('Em aberto nos Ajustes',D.abertas,plural(D.resolvidas,'já tratada','já tratadas'))}</div>
   <h3>Divergências encontradas</h3>${hbars(D.tipos.filter(x=>x.n).map(x=>({l:x.l,v:x.n,t:uasTxt(x.n)+(x.kg?' · '+kgf(x.kg)+' kg':''),c:x.k==='end'||x.k==='kg'?'warn':'crit'})),'Nenhuma divergência nesta auditoria.')}
   <h3>Contagens realizadas</h3><div class="scroll"><table><thead><tr><th>Contagem</th><th>Hora</th><th class="num">Bipadas / sistema</th><th class="num">Por UA</th><th class="num">Por kg</th><th>Divergências</th></tr></thead><tbody>${
     D.fs.slice().reverse().map(c=>{const r=c.resumo;return `<tr><td><b>${esc(titulo(c))}</b></td><td class="nw">${dtf(c.fim)}</td><td class="num">${r.contadas}/${r.esperadas??r.escopo}</td><td class="num">${pctf(pct(r.endOk,r.escopo))}</td><td class="num">${pctf(accKg(r))}</td><td>${divTxt(r)?esc(divTxt(r)):'<span class="chip ok">Sem divergência</span>'}</td></tr>`}).join('')}</tbody></table></div>
@@ -1324,6 +1376,95 @@ function encerraSess(){
   if(!tem){delete sessoes[sess.id];apaga('sessoes',sess.id);sess=null;renderCont();toast('Auditoria encerrada sem contagens.');return}
   sess.status='encerrada';sess.fim=iso();grava('sessoes',sess.id,sess);sessFim=sess.id;sess=null;ultimo=null;renderCont();renderAc();$('sessRes').scrollIntoView({block:'start'});
 }
+
+/* ---------- validade, bloqueio e quantidade ---------- */
+const dIso=v=>{if(v==null||v==='')return'';if(typeof v==='number')return new Date(v).toISOString().slice(0,10);const t=String(v);let m=t.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];m=t.match(/^(\d{2})\/(\d{2})\/(\d{4})/);return m?m[3]+'-'+m[2]+'-'+m[1]:''};
+const diasPara=k=>Math.round((new Date(k+'T12:00:00').getTime()-new Date(diaKey(iso())+'T12:00:00').getTime())/864e5);
+const limVenc=()=>{const n=Number(cfg.venc??30);return isFinite(n)?n:30};
+const vencTxt=d=>d<0?'Vencida há '+(-d)+(d===-1?' dia':' dias'):d===0?'Vence hoje':'Vence em '+d+(d===1?' dia':' dias');
+function vencChip(v,sempre){const k=dIso(v);if(!k)return'';const d=diasPara(k);if(d<0)return`<span class="chip crit">${vencTxt(d)}</span>`;if(d<=limVenc())return`<span class="chip warn">${vencTxt(d)}</span>`;return sempre?`<span class="chip off">${vencTxt(d)}</span>`:''}
+const vencAlerta=v=>{const k=dIso(v);return !!k&&diasPara(k)<=limVenc()};
+function extraChips(i){
+  return vencChip(i.venc)+(i.bloq>0?`<span class="chip crit">Bloqueada · ${kgf(i.bloq)} kg</span>`:'')+(i.res>0?`<span class="chip off">Reservada · ${kgf(i.res)} kg</span>`:'')+
+    (i.kg!=null&&i.kgs!=null?(Math.abs(i.kg-i.kgs)<=i.kgs*tol()?'<span class="chip ok">Quantidade confere</span>':`<span class="chip crit">Contado ${kgf(i.kg)} kg · diferença ${sinal(i.kg-i.kgs)} kg</span>`):'');
+}
+const extraTxt=i=>[...extraChips(i).matchAll(/>([^<]+)</g)].map(m=>' · '+m[1]).join('');
+let azV='ocu';
+function renderAzVal(l){
+  const com=l.map(e=>({e,k:dIso(e.venc)})).filter(x=>x.k).map(x=>Object.assign(x,{d:diasPara(x.k)})),pz=$('azPrazo').value,lim=pz==='todas'?Infinity:Number(pz);
+  if(!com.length){$('azVal').innerHTML=`<div class="panel"><p class="empty">${!ready?'Carregando…':l.length?'O estoque carregado não traz data de vencimento. Peça ao administrador para carregar o estoque completo de novo na aba Config.; se continuar vazio, o WMS não informa a validade destes itens.':'Nenhum estoque carregado.'}</p></div>`;return}
+  const fx=[['Vencidas',x=>x.d<0,'crit'],['Vencem em até 30 dias',x=>x.d>=0&&x.d<=30,'crit'],['De 31 a 60 dias',x=>x.d>30&&x.d<=60,''],['De 61 a 90 dias',x=>x.d>60&&x.d<=90,'']];
+  const sel=com.filter(x=>x.d<=lim).sort((a,b)=>a.d-b.d),kg=x=>Number(x.e.kg)||0;
+  const grp=fn=>{const m={};sel.forEach(x=>{const k=fn(x.e);if(!k)return;const o=m[k]||(m[k]={k,n:0,kg:0,min:x.d});o.n++;o.kg+=kg(x);o.min=Math.min(o.min,x.d)});return Object.values(m).sort((a,b)=>b.n-a.n||a.k.localeCompare(b.k)).slice(0,8)};
+  const barras=(g,nm)=>hbars(g.map(o=>({l:nm(o.k),v:o.n,t:uasTxt(o.n)+' · '+kgf(o.kg)+' kg',c:o.min<0?'crit':'warn'})),'Nada neste prazo.');
+  $('azVal').innerHTML=`<div class="minis">${fx.map(f=>{const g=com.filter(f[1]);return `<div class="mini"><span class="t">${f[0]}</span><b class="${g.length?f[2]:''}">${g.length}</b><span class="sub">${kgf(g.reduce((t,x)=>t+kg(x),0))} kg</span></div>`}).join('')}</div>
+    <div class="cols"><div class="panel"><h2>Por armazém</h2>${barras(grp(e=>baiaDe(e.endereco)),nomeGrupo)}</div><div class="panel"><h2>Por item</h2>${barras(grp(e=>e.descricao||e.produto),k=>k)}</div></div>
+    <div class="panel"><h2>UAs por vencimento</h2>${sel.length?`<div class="scroll"><table><thead><tr><th>UA</th><th>Endereço</th><th>Item</th><th>Lote</th><th class="num">Kg</th><th>Vencimento</th><th></th></tr></thead><tbody>${sel.slice(0,400).map(x=>`<tr><td class="ua">${esc(x.e.ua)}</td><td>${addr(x.e.endereco)}</td><td>${esc(x.e.descricao)}</td><td>${esc(x.e.lote)}</td><td class="num">${kgf(x.e.kg)}</td><td class="nw">${brDia(x.k)}</td><td>${vencChip(x.k,true)}</td></tr>`).join('')}</tbody></table></div>${sel.length>400?`<p class="sub">Mostrando as primeiras 400 de ${sel.length} UAs.</p>`:''}`:'<p class="empty">Nenhuma UA dentro deste prazo.</p>'}</div>`;
+}
+function renderAzBlq(l){
+  const n=v=>Number(v)||0,tem=l.some(e=>e.disp!=null||e.bloq!=null);
+  if(!tem){$('azBlq').innerHTML=`<div class="panel"><p class="empty">${!ready?'Carregando…':l.length?'O estoque carregado não traz o saldo separado por situação. Peça ao administrador para carregar o estoque completo de novo na aba Config.':'Nenhum estoque carregado.'}</p></div>`;return}
+  const S=[['Disponível','disp','s-ok','ok'],['Bloqueado','bloq','s-crit','crit'],['Reservado','res','s-warn',''],['Empenhado','emp','s-off','']];
+  const tot=S.map(s=>({s,kg:l.reduce((t,e)=>t+n(e[s[1]]),0),uas:l.filter(e=>n(e[s[1]])>0).length})),T=tot.reduce((t,x)=>t+x.kg,0)||1;
+  const par=l.filter(e=>n(e.bloq)>0||n(e.res)>0||n(e.emp)>0).sort((a,b)=>n(b.bloq)-n(a.bloq)||n(b.res)-n(a.res));
+  $('azBlq').innerHTML=`<div class="minis">${tot.map(x=>`<div class="mini"><span class="t">${x.s[0]}</span><b class="${x.s[3]==='crit'&&!x.kg?'':x.s[3]}">${kgf(x.kg)}</b><span class="sub">kg · ${pctf(pct(x.kg,T))} · ${uasTxt(x.uas)}</span></div>`).join('')}</div>
+    <div class="panel"><h2>Como o saldo se divide</h2><div class="stk">${tot.map(x=>x.kg>0?`<i class="${x.s[2]}" style="width:${x.kg/T*100}%">${x.kg/T>0.08?pctf(pct(x.kg,T)):''}</i>`:'').join('')}</div>
+      <div class="legend">${S.map(s=>`<span><span class="sw ${s[2]}"></span>${s[0]}</span>`).join('')}</div></div>
+    <div class="panel"><h2>UAs bloqueadas, reservadas ou empenhadas</h2>${par.length?`<div class="scroll"><table><thead><tr><th>UA</th><th>Endereço</th><th>Item</th><th>Lote</th><th class="num">Kg bloqueado</th><th class="num">Kg reservado</th><th class="num">Kg empenhado</th></tr></thead><tbody>${par.slice(0,400).map(e=>`<tr><td class="ua">${esc(e.ua)}</td><td>${addr(e.endereco)}</td><td>${esc(e.descricao)}</td><td>${esc(e.lote)}</td><td class="num">${n(e.bloq)?kgf(e.bloq):''}</td><td class="num">${n(e.res)?kgf(e.res):''}</td><td class="num">${n(e.emp)?kgf(e.emp):''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="empty">Nenhuma UA bloqueada, reservada ou empenhada com estes filtros.</p>'}</div>`;
+}
+
+/* ---------- endereços vazios ---------- */
+let endsCad=[],cfgOk=false;
+function aprendeEnds(){
+  if(!cfgOk)return;const set=new Set(endsCad);let n=0;
+  Object.values(estoque).forEach(e=>{if(e.endereco&&!set.has(e.endereco)){set.add(e.endereco);n++}});
+  if(n){endsCad=[...set].sort();grava('config','enderecos',{l:endsCad})}
+}
+function renderEnds(){
+  const el=$('endSt');if(el){el.textContent=plural(endsCad.length,'endereço','endereços');el.className='chip '+(endsCad.length?'ok':'off')}
+  const s=$('vzArm'),v=s.value,gs=[...new Set(endsCad.map(baiaDe))].sort();
+  s.innerHTML='<option value="">Todos os armazéns</option>'+gs.map(g=>`<option value="${esc(g)}">${esc(nomeGrupo(g))}</option>`).join('');
+  s.value=gs.includes(v)?v:'';
+}
+async function iniciarVazio(){
+  if(!endsCad.length){toast('O app ainda não conhece os endereços. O administrador informa a lista na aba Config.');return}
+  const arm=$('vzArm').value,ocup=()=>new Set(Object.values(estoque).map(e=>e.endereco));
+  let o=ocup(),cand=endsCad.filter(e=>(!arm||baiaDe(e)===arm)&&!o.has(e));
+  const b=$('btnIniciar');
+  if(aoVivo()&&cand.length){
+    if(cand.length>400){toast('São '+cand.length+' endereços para conferir no WMS. Escolha um armazém por vez.');return}
+    b.disabled=true;
+    for(let i=0;i<cand.length;i+=5){b.textContent='Conferindo no WMS… '+i+' de '+cand.length;await sinc(cand.slice(i,i+5),[])}
+    b.disabled=false;o=ocup();cand=cand.filter(e=>!o.has(e));
+  }
+  renderNova();
+  if(!cand.length){toast('Nenhum endereço vazio'+(arm?' em '+nomeGrupo(arm):'')+'. Todos os endereços conhecidos têm estoque.');return}
+  cur={id:'c'+Date.now().toString(36)+DEV.slice(0,4),dev:DEV,por:'vazio',valor:arm||'*',sessao:sess?sess.id:'',operador:uid||'',inicio:iso(),status:'aberta',itens:{},org:{},vazios:{},lista:cand,vz:{}};
+  ultimo=null;putContagem(cur);renderCont();
+}
+function renderVz(){
+  const L=cur.lista||[],vz=cur.vz||{},g={};L.forEach(e=>{(g[baiaDe(e)]=g[baiaDe(e)]||[]).push(e)});
+  $('vzTit').textContent=titulo(cur);$('vzSub').textContent=plural(L.length,'endereço consta','endereços constam')+' como vazio no sistema';
+  $('vzProg').textContent=L.filter(e=>vz[e]).length+' de '+L.length;
+  $('vzLista').innerHTML=Object.keys(g).sort().map(k=>`<div class="baiaCard"><b>${esc(nomeGrupo(k))} <span class="sub">${plural(g[k].length,'vazio','vazios')}</span></b><div class="mapa">${
+    g[k].map(e=>`<button type="button" class="cel ${vz[e]==='ok'?'vzok':vz[e]==='ua'?'div':'vz'}" data-vzc="${esc(e)}">${vz[e]==='ok'?'✓ ':vz[e]==='ua'?'! ':''}${esc(e)}</button>`).join('')}</div></div>`).join('');
+}
+function finalizarVazio(){
+  const c=cur,agora=iso(),vz=c.vz||{},L=c.lista||[];
+  if(!L.some(e=>vz[e])){toast('Marque ao menos um endereço antes de finalizar.');return}
+  const r={escopo:0,contadas:0,endOk:0,kgContadas:0,kgOk:0,kgSist:0,kgFis:0,nEnd:0,nKg:0,nNao:0,nSobra:0,nVenc:0,nBloq:0,kgBloq:0,esperadas:0,kgEsc:0,kgCerto:0,kgFalta:0,kgFora:0,
+    vzTotal:L.length,vzOk:L.filter(e=>vz[e]==='ok').length,vzUa:L.filter(e=>vz[e]==='ua').length};
+  L.filter(e=>vz[e]==='ua').forEach(e=>putAjuste({id:c.id+'-'+e+'-vz',contagem:c.id,ua:'não identificada',tipo:'vz',sist:null,fis:e,status:'pendente',criado:agora,por:'',em:'',motivo:'',prod:'',desc:'',lote:'',kg:0,endRef:e}));
+  c.fonte=aoVivo()?'wms':'carregado';c.ends=L.filter(e=>vz[e]);c.det=[];c.status='finalizada';c.fim=agora;c.resumo=r;
+  putContagem(c);ultimo=c;cur=null;renderTudo();
+}
+function auditoriaVz(c,emb){
+  const r=c.resumo,vz=c.vz||{},L=c.lista||[],ua=L.filter(e=>vz[e]==='ua');
+  return `${emb?'':`<div class="row"><div class="grow"><h2>Resultado · ${esc(titulo(c))}</h2><p class="sub">${dtf(c.fim)}</p></div><span class="chip ${r.vzUa?'crit':'ok'}">${r.vzUa?plural(r.vzUa,'endereço com UA','endereços com UA'):'Sem divergência'}</span></div>`}
+  <div class="stats">${[[r.vzTotal,'Vazios no sistema'],[r.vzOk,'Confirmados vazios'],[r.vzUa,'Com UA no físico'],[r.vzTotal-r.vzOk-r.vzUa,'Não conferidos']].map(s=>`<div class="stat"><span class="t">${s[1]}</span><b>${s[0]}</b></div>`).join('')}</div>
+  ${ua.length?`<h3>Endereços vazios no sistema, mas com UA no físico</h3><div class="row">${ua.map(e=>addr(e)).join('')}</div>`:''}
+  <div class="row">${emb?'':'<button class="btn" type="button" data-novo="1">Nova contagem</button>'}${r.vzUa?'<button class="btn ghost" type="button" data-go="ajustes">Ver na aba Ajustes</button>':''}</div>`;
+}
 /* ---------- armazém ---------- */
 function ultimas(){const m={};finalizadas().forEach(c=>Object.entries(c.itens||{}).forEach(([ua,i])=>{if(!m[ua]||i.hora>m[ua])m[ua]=i.hora}));return m}
 const dias=s=>Math.max(0,Math.floor((Date.now()-new Date(s).getTime())/864e5));
@@ -1340,12 +1481,16 @@ function renderAz(){
   const l=all.filter(e=>(!fB||baiaDe(e.endereco)===fB)&&(!fI||e.produto===fI)&&sit(e)&&(!q||[e.ua,e.lote,e.endereco].some(v=>String(v).toUpperCase().includes(q)))).sort((a,b)=>String(a.endereco).localeCompare(String(b.endereco)));
   const kgT=l.reduce((t,e)=>t+(Number(e.kg)||0),0);
   $('azTxt').textContent=all.length?plural(l.length,'UA','UAs')+' · '+kgf(kgT)+' kg · '+plural(new Set(l.map(e=>e.endereco)).size,'endereço ocupado','endereços ocupados')+(l.length<all.length?' (de '+all.length+' UAs no estoque carregado)':''):'';
-  /* sem baia escolhida: uma linha por baia; com baia escolhida: uma linha por endereço dela */
+  document.querySelectorAll('#azVis button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.az===azV));
+  $('azOcu').hidden=azV!=='ocu';$('azVal').hidden=azV!=='val';$('azBlq').hidden=azV!=='blq';$('azPrazoL').hidden=azV!=='val';
+  if(azV==='val'){renderAzVal(l);return}
+  if(azV==='blq'){renderAzBlq(l);return}
+  /* sem armazém escolhido: uma linha por armazém; com armazém escolhido: uma linha por endereço dele */
   const chave=e=>fB?e.endereco:baiaDe(e.endereco);
   l.forEach(e=>{const b=chave(e),x=m[b]||(m[b]={b,ends:new Set(),n:0,kg:0,nunca:0,velha:null,div:0});
     x.ends.add(e.endereco);x.n++;x.kg+=Number(e.kg)||0;if(divUa.has(e.ua))x.div++;const u=ult[e.ua];if(!u)x.nunca++;else if(!x.velha||u<x.velha)x.velha=u});
   const bs=Object.values(m).sort((a,b)=>String(a.b).localeCompare(String(b.b)));
-  $('azTit').textContent=fB?'Endereços de '+nomeGrupo(fB):'Ocupação e dias sem auditoria por baia e porta-palete';
+  $('azTit').textContent=fB?'Endereços de '+nomeGrupo(fB):'Ocupação e dias sem auditoria por armazém';
   $('azBaia').innerHTML=bs.length?`<table><thead><tr><th>${fB?'Endereço':'Local'}</th>${fB?'':'<th class="num">Endereços ocupados</th>'}<th class="num">UAs</th><th class="num">Kg</th><th>Auditoria mais antiga</th><th class="num">UAs nunca auditadas</th><th class="num">Divergências em aberto</th><th></th></tr></thead><tbody>`+
     bs.map(x=>{const d=x.velha?dias(x.velha):null,al=x.nunca?['Há UA sem auditoria','crit']:d>30?['Mais de 30 dias','warn']:['Em dia','ok'];
       return `<tr><td>${fB?addr(x.b):'<b>'+esc(nomeGrupo(x.b))+'</b>'}</td>${fB?'':`<td class="num">${x.ends.size}</td>`}<td class="num">${x.n}</td><td class="num">${kgf(x.kg)}</td><td>${x.velha?diasTxt(x.velha):'—'}</td><td class="num">${x.nunca}</td><td class="num">${x.div}</td><td><span class="chip ${al[1]}">${al[0]}</span></td></tr>`}).join('')+'</tbody></table>'
@@ -1414,6 +1559,11 @@ document.addEventListener('click',ev=>{
   else if(d.man){ajusteManual(d.man)}
   else if(d.vuas){semUas[d.vuas]=!semUas[d.vuas];renderAj()}
   else if(d.reldia){acPer='hoje';acAberta=null;abre('acuracidade');renderAc()}
+  else if(d.az){azV=d.az;renderAz()}
+  else if(d.vzc&&cur&&cur.por==='vazio'){cur.vz=cur.vz||{};const k=d.vzc,v=cur.vz[k];if(!v)cur.vz[k]='ok';else if(v==='ok')cur.vz[k]='ua';else delete cur.vz[k];putContagem(cur);renderVz()}
+  else if(b.id==='btnVzFim'){finalizarVazio()}
+  else if(b.id==='btnVzCanc'){$('btnCancela').onclick()}
+  else if(b.id==='endAdd'){const t=$('endTxt').value.split(/[\s,;]+/).map(limpa).filter(x=>x.length>=3),set=new Set(endsCad),n0=set.size;t.forEach(x=>set.add(x));endsCad=[...set].sort();grava('config','enderecos',{l:endsCad});$('endTxt').value='';renderEnds();toast((set.size-n0)+' endereços novos. Total: '+set.size+'.')}
   else if(d.cp){cpPer=d.cp;renderCp()}
   else if(b.id==='btnSessIni'){iniciaSess()}
   else if(b.id==='btnSessFim'){encerraSess()}
@@ -1483,13 +1633,13 @@ $('btnLoteNao').onclick=()=>{$('loteConf').hidden=true};
 $('btnLoteSim').onclick=async()=>{const b=$('btnLoteSim');b.disabled=true;const rs=[];for(const i of [...sel])rs.push(await ajustar(i));b.disabled=false;const n=rs.filter(r=>r!==false).length;$('loteConf').hidden=true;renderAj();renderAz();renderAc();if(n||rs.length>1)toast(n+' de '+rs.length+(n===1?' tratada.':' tratadas.'))};
 $('btnCfg').onclick=()=>{const a=numIn($('cfMetaEnd').value),b=numIn($('cfMetaKg').value),g=numIn($('cfMetaGeral').value),c=numIn($('cfTol').value);
   if([a,b,g,c].some(v=>v===null||isNaN(v)||v>100)){toast('Use números de 0 a 100.');return}
-  cfg=Object.assign({},cfg,{metaEnd:a,metaKg:b,metaGeral:g,tol:c,emails:$('cfEmails').value.trim()});grava('config','geral',cfg);renderAc();toast('Salvo. A tolerância vale para as próximas auditorias.')};
+  const vd=numIn($('cfVenc').value);cfg=Object.assign({},cfg,{metaEnd:a,metaKg:b,metaGeral:g,tol:c,venc:vd===null||isNaN(vd)?30:Math.round(vd),emails:$('cfEmails').value.trim()});grava('config','geral',cfg);renderAc();toast('Salvo. A tolerância vale para as próximas auditorias.')};
 $('btnPdf').onclick=baixarPdf;$('btnMail').onclick=enviarEmail;
 $('btnCpPdf').onclick=()=>{const D=relCp();if(D)baixarPdf(D)};$('btnCpMail').onclick=()=>{const D=relCp();if(D)enviarEmail(D)};
 document.addEventListener('change',ev=>{const t=ev.target;if(t&&/^cpA[12]$/.test(t.id||'')){cpPer='datas';renderCp()}});
 $('btnXls').onclick=exportar;
 $('posBusca').addEventListener('input',renderAz);
-['azF','azItem','azSit'].forEach(i=>$(i).addEventListener('change',renderAz));
+['azF','azItem','azSit','azPrazo'].forEach(i=>$(i).addEventListener('change',renderAz));
 $('azLimpa').onclick=()=>{['azF','azItem','azSit','posBusca'].forEach(i=>{$(i).value=''});renderAz()};
 $('admOk').onclick=entraAdm;$('admS1').addEventListener('keydown',ev=>{if(ev.key==='Enter'&&!$('admL2').hidden===false)entraAdm()});
 $('admSair').onclick=()=>{admOk=false;window.__adminSenha='';renderAdm()};
@@ -1521,8 +1671,9 @@ abre(ini);renderTudo();boot();
   async function descricao(p){if(!p)return'';if(p in prods)return prods[p];
     try{let d=await chamar('produto/'+encodeURIComponent(cfg.dep)+'/'+encodeURIComponent(p));if(Array.isArray(d))d=d[0];prods[p]=String((d&&d.descricaoProduto)||'');por('inv-prod',JSON.stringify(prods));return prods[p]}catch(e){return''}}
   async function junta(linhas,ach){for(const it of linhas){const ua=limpa(it.codigoUa);if(!ua||ua==='0')continue;const q=Number(it.quantidadeAtual)||0;
-    if(ach[ua]){ach[ua].kg+=q;ach[ua].itens++;continue}
-    const p=String(it.codigoProduto||'');ach[ua]={ua,endereco:limpa(it.etiquetaEndereco),produto:p,descricao:await descricao(p),lote:String(it.loteFabricacao||it.loteGeral||''),kg:q,unidade:String(it.tipoUc||''),itens:1}}}
+    const nn=v=>Number(v)||0,vv=it.dataVencimento||'';
+    if(ach[ua]){const o=ach[ua];o.kg+=q;o.itens++;o.disp+=nn(it.quantidadeDisponivel);o.bloq+=nn(it.quantidadeBloqueado);o.res+=nn(it.quantidadeReservado);o.emp+=nn(it.quantidadeEmpenhado);if(vv&&(!o.venc||String(vv)<String(o.venc)))o.venc=vv;continue}
+    const p=String(it.codigoProduto||'');ach[ua]={ua,endereco:limpa(it.etiquetaEndereco),produto:p,descricao:await descricao(p),lote:String(it.loteFabricacao||it.loteGeral||''),kg:q,unidade:String(it.tipoUc||''),itens:1,venc:vv,fab:it.dataFabricacao||'',disp:nn(it.quantidadeDisponivel),bloq:nn(it.quantidadeBloqueado),res:nn(it.quantidadeReservado),emp:nn(it.quantidadeEmpenhado)}}}
   window.__infoUa=async ua=>{let c=await chamar('ua/'+encodeURIComponent(cfg.est)+'/'+encodeURIComponent(limpa(ua)));if(Array.isArray(c))c=c[0];return c||{}};
   window.__sincSaldo=async(enderecos,uas,extra)=>{
     if(!chave)return null;const ach={},ends=enderecos.map(limpa).filter(Boolean);
