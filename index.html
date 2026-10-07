@@ -250,6 +250,18 @@ b.ok{color:var(--ok)} b.crit{color:var(--crit)}
   .ajT .cacao .btn{flex:1 1 auto;min-height:44px} .ajT .cacao .btn.ghost{border-color:var(--line)}
   #ajLista{overflow:visible}
 }
+.cfgTop{display:none;background:none;border:0;color:var(--side-muted);padding:8px;margin:-4px -6px -4px 0;border-radius:8px;cursor:pointer}
+.cfgTop svg{width:24px;height:24px;display:block}
+.cfgTop:hover{color:var(--side-fg)}
+@media (max-width:860px){.cfgTop:not([hidden]){display:block}.tabs #tabCfg{display:none}.tabs button{font-size:11px}}
+@media (max-width:560px){
+  .minis{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .mini{padding:8px 8px 7px;gap:2px;border-radius:8px}
+  .mini .t{font-size:9px;letter-spacing:.03em;line-height:1.2;min-height:22px}
+  .mini b{font-size:21px} .mini .sub{font-size:10px;line-height:1.2}
+  #tab-acuracidade > .panel:first-child{padding:12px;gap:10px}
+  #tab-acuracidade > .panel:first-child .btn{min-height:42px;padding:0 12px;font-size:14px}
+}
 summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercase;letter-spacing:.04em}
 #toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:11px 18px;font-weight:600;max-width:90vw;border-radius:8px;z-index:5;box-shadow:var(--shadow)}
 </style>
@@ -269,6 +281,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       <button role="tab" data-tab="armazem" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 20V9l9-5 9 5v11"></path><path d="M7 20v-7h10v7M7 16.5h10"></path></svg><span class="lb">Armazém</span></button>
     </nav>
     <div class="who" id="quem"></div>
+    <button type="button" class="cfgTop" id="cfgTop" data-tab="config" aria-label="Configuração" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></button>
   </aside>
   <main class="wrap">
   <header class="top">
@@ -643,7 +656,7 @@ function renderOrg(){
   $('btnVazio').textContent=(cur.vazios||{})[e]?'Marcado como vazio (desfazer)':'Endereço vazio';
 }
 function renderCont(){
-  renderSess();
+  renderSess();$('recBox').hidden=!!cur;
   $('novaBox').hidden=!!cur||!sess; $('contBox').hidden=!cur;
   $('resBox').hidden=!!cur||!ultimo||!sess;
   if(ultimo&&!cur)$('resBox').innerHTML=auditoria(ultimo);
@@ -1296,7 +1309,7 @@ function resumoSess(id){
     <span class="row"><button class="btn small" type="button" data-sessmail="${esc(id)}">Enviar por e-mail</button><button class="btn ghost small" type="button" data-sesspdf="${esc(id)}">Baixar PDF</button><button class="btn ghost small" type="button" data-sessok="1">Agora não</button></span></div>`;
 }
 function renderSess(){
-  $('sessIni').hidden=!!sess||!!cur||!!sessFim;$('sessNomeL').hidden=!!uid||!window.__admin;$('sessBar').hidden=!sess;$('sessRes').hidden=!!sess||!sessFim;
+  $('sessIni').hidden=!!sess||!!cur||!!sessFim;$('sessNomeL').hidden=!!uid||!window.__admin;$('sessBar').hidden=!sess||!!cur;$('sessRes').hidden=!!sess||!sessFim;
   if(sess){const cs=Object.values(contagens).filter(c=>c.sessao===sess.id&&c.status==='finalizada'),u=cs.reduce((t,c)=>t+(c.resumo?c.resumo.contadas:0),0);
     $('sessTxt').textContent='Iniciada em '+dtf(sess.inicio)+' · '+plural(cs.length,'contagem finalizada','contagens finalizadas')+' · '+plural(u,'UA bipada','UAs bipadas')}
   if(!sess&&sessFim)$('sessRes').innerHTML=resumoSess(sessFim);
@@ -1345,7 +1358,7 @@ function renderAz(){
 }
 let admOk=false;
 async function renderAdm(){
-  const A=window.__admin;$('tabCfg').hidden=!A;if(!A)return;
+  const A=window.__admin;$('tabCfg').hidden=!A;$('cfgTop').hidden=!A;if(!A)return;
   let tem=true;try{tem=await A.tem()}catch(e){}
   $('admBox').hidden=admOk;$('admArea').hidden=!admOk;$('admL2').hidden=tem;$('admOk').textContent=tem?'Entrar':'Criar senha';
   $('admTxt').textContent=tem?'A ligação com o WMS e a chave de acesso ficam protegidas. Digite a senha do administrador. É a mesma em todos os aparelhos.':'Crie a senha do administrador. Ela é única: vale para todos os aparelhos e só pode ser criada uma vez. Só quem souber essa senha poderá ver esta tela e trocar a chave de acesso do WMS.';
@@ -1426,6 +1439,7 @@ document.addEventListener('change',ev=>{const c=ev.target,d=c.dataset||{};
 $('acChart').addEventListener('pointerover',ev=>{const r=ev.target.closest('.hit');if(r)tipOn(r)});
 $('acChart').addEventListener('focusin',ev=>{const r=ev.target.closest('.hit');if(r)tipOn(r)});
 $('acChart').addEventListener('pointerleave',tipOff);$('acChart').addEventListener('focusout',tipOff);
+$('ultBip').after($('orgBox'));
 $('btnIniciar').onclick=iniciar;
 $('novoEnd').addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();iniciar()}});
 $('valorIn').addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();iniciar()}});
