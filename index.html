@@ -685,6 +685,14 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
         <div class="row" style="align-items:flex-end"><label class="grow" style="max-width:320px">Endereço<input type="text" id="libEnd" placeholder="M04A01" autocapitalize="characters" autocomplete="off"></label><button class="btn" type="button" id="libAdd">Liberar contagem</button></div>
         <div class="row" id="libLista"></div>
       </div>
+      <div class="panel" id="senhaBox">
+        <h2>Alterar a senha de acesso da configuração</h2>
+        <p class="sub">A senha é única: ao trocar aqui, ela muda em todos os aparelhos. Use pelo menos 8 caracteres.</p>
+        <label style="max-width:420px">Senha atual<input type="password" id="snAtual" autocomplete="off"></label>
+        <label style="max-width:420px">Nova senha<input type="password" id="snNova" autocomplete="off"></label>
+        <label style="max-width:420px">Repita a nova senha<input type="password" id="snNova2" autocomplete="off"></label>
+        <button class="btn" type="button" id="snOk" style="align-self:flex-start">Alterar senha</button>
+      </div>
       <div class="panel" id="rsBox" style="border-color:var(--crit)">
         <h2>Apagar todas as auditorias</h2>
         <p class="sub">Apaga as auditorias, as contagens, as divergências da aba Ajustes e o histórico, em todos os aparelhos. Não apaga a chave do WMS, a senha, as metas, os e-mails, os endereços cadastrados nem o estoque carregado: o app continua funcionando e a numeração das auditorias recomeça do 1.</p>
@@ -2054,6 +2062,9 @@ document.addEventListener('click',ev=>{
   else if(b.id==='libAdd'){liberaEnd()}
   else if(d.librm){delete liberados[d.librm];grava('config','liberados',{l:liberados});renderLib();toast('Liberação cancelada.')}
   else if(b.id==='rsOk'){resetar()}
+  else if(b.id==='snOk'){const a=$('snAtual').value,n=$('snNova').value,A=window.__admin;if(!A||!A.trocar)return;
+    if(!a){toast('Digite a senha atual.');$('snAtual').focus();return}if(n!==$('snNova2').value){toast('As duas senhas novas não são iguais.');return}
+    b.disabled=true;A.trocar(a,n).then(()=>{window.__adminSenha=n;['snAtual','snNova','snNova2'].forEach(i=>{$(i).value=''});toast('Senha alterada. Vale para todos os aparelhos.')}).catch(e=>toast((e&&e.message)||'Não foi possível trocar a senha.')).finally(()=>{b.disabled=false})}
   else if(b.id==='cfDiasSalvar'){const n=numIn($('cfDiasRec').value);if(n===null||isNaN(n)||n>365){toast('Use um número de dias de 0 a 365.');return}cfg=Object.assign({},cfg,{diasRec:Math.round(n)});grava('config','geral',cfg);renderCfg();toast(Math.round(n)?'Salvo: o mesmo endereço só pode ser contado de novo depois de '+plural(Math.round(n),'dia','dias')+'.':'Salvo: sem bloqueio de recontagem.')}
   else if(d.mt){cfg.metaTipo=d.mt;grava('config','geral',cfg);renderCfg();renderAc()}
   else if(d.busca){buscaLote(d.busca)}
@@ -2218,7 +2229,12 @@ abre(ini);renderTudo();boot();
     criar:async t=>{if(String(t).length<8)throw new Error('Use uma senha com pelo menos 8 caracteres.');if(await admRemoto())throw new Error('A senha do administrador já foi criada em outro aparelho.');
       const sal=hex(crypto.getRandomValues(new Uint8Array(12))),d={h:await pbk(t,sal),s:sal},r=await fetch(ADM,{method:'PUT',body:JSON.stringify(d)});
       if(!r.ok)throw new Error('O banco não aceitou gravar a senha. Talvez ela já tenha sido criada em outro aparelho.');por('inv-adm2',JSON.stringify(d))},
-    entrar:async t=>{const j=await admRemoto();return !!j&&j.h===await pbk(t,j.s)}};
+    entrar:async t=>{const j=await admRemoto();return !!j&&j.h===await pbk(t,j.s)},
+    trocar:async(atual,nova)=>{if(String(nova).length<8)throw new Error('Use uma nova senha com pelo menos 8 caracteres.');
+      let j;try{const r=await fetch(ADM,{cache:'no-store'});if(!r.ok)throw 0;j=await r.json()}catch(e){throw new Error('Sem internet para trocar a senha. Tente de novo quando o aparelho estiver ligado.')}
+      if(!j||!j.h||j.h!==await pbk(atual,j.s))throw new Error('A senha atual não confere.');
+      const sal=hex(crypto.getRandomValues(new Uint8Array(12))),d={h:await pbk(nova,sal),s:sal},r=await fetch(ADM,{method:'PUT',body:JSON.stringify(d)});
+      if(!r.ok)throw new Error('O banco não aceitou trocar a senha (erro '+r.status+'). As regras do Firebase precisam permitir regravar o registro "adm".');por('inv-adm2',JSON.stringify(d))}};
   function status(){
     window.__saldoAoVivo=!!chave;let host='';try{host=new URL(cfg.url).hostname}catch(e){}
     $('wmsSt').textContent=chave?'Ligado a '+host:'Sem chave de acesso';$('wmsSt').className='chip '+(chave?'ok':'off');
