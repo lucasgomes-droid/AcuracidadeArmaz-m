@@ -580,8 +580,8 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       <div class="row" style="align-items:flex-end">
         <label>Armazém<select class="sm" id="azF"></select></label>
         <label>Item<select class="sm" id="azItem"></select></label>
-        <label>Situação<select class="sm" id="azSit"><option value="">Todas</option><option value="nunca">Nunca auditadas</option><option value="30">Mais de 30 dias sem auditar</option><option value="dia">Auditadas nos últimos 30 dias</option><option value="div">Com divergência em aberto</option></select></label>
-        <label id="azPrazoL" hidden>Vencimento<select class="sm" id="azPrazo"><option value="30">Vencidas e até 30 dias</option><option value="60">Até 60 dias</option><option value="90">Até 90 dias</option><option value="todas">Todas</option></select></label>
+        <label id="azSitL">Situação<select class="sm" id="azSit"><option value="">Todas</option><option value="nunca">Nunca auditadas</option><option value="30">Mais de 30 dias sem auditar</option><option value="dia">Auditadas nos últimos 30 dias</option><option value="div">Com divergência em aberto</option></select></label>
+        <label id="azPrazoL" hidden>Vencimento<select class="sm" id="azPrazo"><option value="">Todas</option><option value="venc">Vencidas</option><option value="15">A vencer em até 15 dias</option><option value="30">A vencer de 16 a 30 dias</option><option value="60">A vencer de 31 a 60 dias</option><option value="mais">A vencer em mais de 60 dias</option></select></label>
         <label class="grow" style="max-width:260px">Buscar<input type="text" class="sm" style="max-width:none;width:100%" id="posBusca" placeholder="UA, lote ou endereço"></label>
         <button class="btn ghost small" type="button" id="azLimpa">Limpar filtros</button>
       </div>
@@ -1735,10 +1735,10 @@ function extraChips(i){
 const extraTxt=i=>[...extraChips(i).matchAll(/>([^<]+)</g)].map(m=>' · '+m[1]).join('');
 let azV='ocu';
 function renderAzVal(l){
-  const com=l.map(e=>({e,k:dIso(e.venc)})).filter(x=>x.k).map(x=>Object.assign(x,{d:diasPara(x.k)})),pz=$('azPrazo').value,lim=pz==='todas'?Infinity:Number(pz);
+  const com=l.map(e=>({e,k:dIso(e.venc)})).filter(x=>x.k).map(x=>Object.assign(x,{d:diasPara(x.k)})),pz=$('azPrazo').value;
   if(!com.length){$('azVal').innerHTML=`<div class="panel"><p class="empty">${!ready?'Carregando…':l.length?'O estoque carregado não traz data de vencimento. Peça ao administrador para carregar o estoque completo de novo na aba Config.; se continuar vazio, o WMS não informa a validade destes itens.':'Nenhum estoque carregado.'}</p></div>`;return}
-  const fx=[['Vencidas',x=>x.d<0,'crit'],['Vencem em até 30 dias',x=>x.d>=0&&x.d<=30,'crit'],['De 31 a 60 dias',x=>x.d>30&&x.d<=60,''],['De 61 a 90 dias',x=>x.d>60&&x.d<=90,'']];
-  const sel=com.filter(x=>x.d<=lim).sort((a,b)=>a.d-b.d),kg=x=>Number(x.e.kg)||0;
+  const fx=[['Vencidas',x=>x.d<0,'crit','venc'],['A vencer em até 15 dias',x=>x.d>=0&&x.d<=15,'crit','15'],['A vencer de 16 a 30 dias',x=>x.d>15&&x.d<=30,'crit','30'],['A vencer de 31 a 60 dias',x=>x.d>30&&x.d<=60,'','60'],['A vencer em mais de 60 dias',x=>x.d>60,'','mais']],fz=fx.find(f=>f[3]===pz);
+  const sel=com.filter(x=>!fz||fz[1](x)).sort((a,b)=>a.d-b.d),kg=x=>Number(x.e.kg)||0;
   const grp=fn=>{const m={};sel.forEach(x=>{const k=fn(x.e);if(!k)return;const o=m[k]||(m[k]={k,n:0,kg:0,min:x.d});o.n++;o.kg+=kg(x);o.min=Math.min(o.min,x.d)});return Object.values(m).sort((a,b)=>b.n-a.n||a.k.localeCompare(b.k)).slice(0,8)};
   const barras=(g,nm)=>hbars(g.map(o=>({l:nm(o.k),v:o.n,t:uasTxt(o.n)+' · '+kgf(o.kg)+' kg',c:o.min<0?'crit':'warn'})),'Nada neste prazo.');
   $('azVal').innerHTML=`<div class="minis">${fx.map(f=>{const g=com.filter(f[1]);return `<div class="mini"><span class="t">${f[0]}</span><b class="${g.length?f[2]:''}">${g.length}</b><span class="sub">${kgf(g.reduce((t,x)=>t+kg(x),0))} kg</span></div>`}).join('')}</div>
@@ -1820,13 +1820,13 @@ function renderAz(){
   const keep=(s,html)=>{const v=s.value;s.innerHTML=html;s.value=[...s.options].some(o=>o.value===v)?v:''};
   keep($('azF'),'<option value="">Todas</option>'+grupos.map(g=>`<option value="${esc(g)}">${esc(nomeGrupo(g))}</option>`).join(''));
   keep($('azItem'),'<option value="">Todos</option>'+Object.keys(itens).sort().map(k=>`<option value="${esc(k)}">${esc(k+(itens[k]?' · '+itens[k]:''))}</option>`).join(''));
-  const fB=$('azF').value,fI=$('azItem').value,fS=$('azSit').value,q=limpa($('posBusca').value);
+  const fB=$('azF').value,fI=$('azItem').value,fS=azV==='val'?'':$('azSit').value,q=limpa($('posBusca').value);
   const sit=e=>{const u=ult[e.ua];return fS===''||(fS==='nunca'&&!u)||(fS==='30'&&u&&dias(u)>30)||(fS==='dia'&&u&&dias(u)<=30)||(fS==='div'&&divUa.has(e.ua))};
   const l=all.filter(e=>(!fB||baiaDe(e.endereco)===fB)&&(!fI||e.produto===fI)&&sit(e)&&(!q||[e.ua,e.lote,e.endereco].some(v=>String(v).toUpperCase().includes(q)))).sort((a,b)=>String(a.endereco).localeCompare(String(b.endereco)));
   const kgT=l.reduce((t,e)=>t+(Number(e.kg)||0),0);
   $('azTxt').textContent=all.length?plural(l.length,'UA','UAs')+' · '+kgf(kgT)+' kg · '+plural(new Set(l.map(e=>e.endereco)).size,'endereço ocupado','endereços ocupados')+(l.length<all.length?' (de '+all.length+' UAs no estoque carregado)':''):'';
   document.querySelectorAll('#azVis button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.az===azV));
-  $('azOcu').hidden=azV!=='ocu';$('azVal').hidden=azV!=='val';$('azBlq').hidden=azV!=='blq';$('azPrazoL').hidden=azV!=='val';
+  $('azOcu').hidden=azV!=='ocu';$('azVal').hidden=azV!=='val';$('azBlq').hidden=azV!=='blq';$('azPrazoL').hidden=azV!=='val';$('azSitL').hidden=azV==='val';
   if(azV==='val'){renderAzVal(l);return}
   if(azV==='blq'){renderAzBlq(l);return}
   /* sem armazém escolhido: uma linha por armazém; com armazém escolhido: uma linha por endereço dele */
@@ -2071,7 +2071,7 @@ document.addEventListener('change',ev=>{const t=ev.target;if(t&&/^cpA[12]$/.test
 $('btnXls').onclick=exportar;
 $('posBusca').addEventListener('input',renderAz);
 ['azF','azItem','azSit','azPrazo'].forEach(i=>$(i).addEventListener('change',renderAz));
-$('azLimpa').onclick=()=>{['azF','azItem','azSit','posBusca'].forEach(i=>{$(i).value=''});renderAz()};
+$('azLimpa').onclick=()=>{['azF','azItem','azSit','azPrazo','posBusca'].forEach(i=>{$(i).value=''});renderAz()};
 $('admOk').onclick=entraAdm;$('admS1').addEventListener('keydown',ev=>{if(ev.key==='Enter'&&!$('admL2').hidden===false)entraAdm()});
 $('admSair').onclick=()=>{admOk=false;window.__adminSenha='';renderAdm()};
 renderAdm();window.addEventListener('load',renderAdm);setTimeout(renderAdm,400);
