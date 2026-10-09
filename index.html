@@ -370,6 +370,7 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
       <label class="check"><input type="checkbox" id="novoQtd">Quantidade (kg)</label>
       <p class="sub">Validade, bloqueio e a quantidade do sistema aparecem sozinhos em cada UA bipada.</p>
       </div>
+      <p class="notice" id="blqMsg" hidden></p>
       <button class="btn" id="btnIniciar" type="button">Iniciar</button>
     </div>
 
@@ -675,6 +676,24 @@ summary{cursor:pointer;font:600 19px/1.15 var(--display);text-transform:uppercas
         <label>Colar endereços<textarea id="endTxt" rows="4" autocapitalize="characters"></textarea></label>
         <button class="btn" type="button" id="endAdd" style="align-self:flex-start">Acrescentar à lista</button>
       </div>
+      <div class="panel" id="recBoxCfg">
+        <h2>Recontagem do mesmo endereço</h2>
+        <p class="sub">Depois que um endereço é contado em "Auditar endereço", o app só deixa contar o mesmo endereço de novo passado este número de dias. Com 0, não há bloqueio. Vale para todos os aparelhos.</p>
+        <div class="row" style="align-items:flex-end"><label>Dias até poder contar de novo<input type="text" class="num" id="cfDiasRec" inputmode="numeric"></label><button class="btn" type="button" id="cfDiasSalvar">Salvar</button></div>
+        <h3>Liberar um endereço antes do prazo</h3>
+        <p class="sub">Quando o auditor precisar recontar um endereço bloqueado, informe o endereço aqui. A liberação vale para uma contagem e some quando ela é iniciada.</p>
+        <div class="row" style="align-items:flex-end"><label class="grow" style="max-width:320px">Endereço<input type="text" id="libEnd" placeholder="M04A01" autocapitalize="characters" autocomplete="off"></label><button class="btn" type="button" id="libAdd">Liberar contagem</button></div>
+        <div class="row" id="libLista"></div>
+      </div>
+      <div class="panel" id="rsBox" style="border-color:var(--crit)">
+        <h2>Apagar todas as auditorias</h2>
+        <p class="sub">Apaga as auditorias, as contagens, as divergências da aba Ajustes e o histórico, em todos os aparelhos. Não apaga a chave do WMS, a senha, as metas, os e-mails, os endereços cadastrados nem o estoque carregado: o app continua funcionando e a numeração das auditorias recomeça do 1.</p>
+        <p class="sub" id="rsQt"></p>
+        <label style="max-width:420px">E-mail que vai receber o backup<input type="text" id="rsMail" placeholder="nome@iccbrazil.com.br" autocapitalize="none" autocomplete="off" inputmode="email"></label>
+        <label style="max-width:420px">Para confirmar, digite APAGAR<input type="text" id="rsConf" autocapitalize="characters" autocomplete="off"></label>
+        <button class="btn danger" type="button" id="rsOk" style="align-self:flex-start">Gerar backup e apagar tudo</button>
+        <p class="sub" id="rsNota">Antes de apagar, o app salva o backup (uma planilha Excel e um arquivo de dados) e abre o e-mail deste aparelho para o endereço informado. No computador, anexe os dois arquivos baixados antes de enviar.</p>
+      </div>
       <button class="btn ghost" type="button" id="admSair" style="align-self:flex-start">Bloquear de novo</button>
     </div>
   </section>
@@ -707,7 +726,8 @@ const iso=()=>new Date().toISOString();
 const numIn=t=>{t=String(t).trim();if(!t)return null;const n=parseFloat(t.replace(/\./g,'').replace(',','.'));return isFinite(n)&&n>=0?n:NaN};
 
 let db=null,user=null,dl=null,uid=null,ready=false;
-const CFG0={metaEnd:98,metaKg:98,metaGeral:98,metaQtd:98,tol:1,metaTipo:'ua',emails:'',venc:30};
+const CFG0={metaEnd:98,metaKg:98,metaGeral:98,metaQtd:98,tol:1,metaTipo:'ua',emails:'',venc:30,diasRec:0};
+let liberados={};
 let estoque={},contagens={},ajustes={},names={},plano=null,cfg=Object.assign({},CFG0);
 let cur=null,ultimo=null,por='endereco',porEnd='endereco',pendEst=null,ajF='aberto',ajT='',reconId=null,plSig='',pts=[];
 const sel=new Set();
@@ -753,12 +773,12 @@ async function boot(){
   db.collection('contagens').onSnapshot(s=>{
     contagens=mapa(s);
     if(!cur){const a=Object.values(contagens).find(c=>c.status==='aberta'&&(c.dev?c.dev===DEV:!!uid&&c.operador===uid));if(a)cur=a}
-    resolveNomes();renderCont();renderPlano();renderAj();renderAc();renderAz();renderHist();
+    resolveNomes();renderCont();renderPlano();renderAj();renderAc();renderAz();renderHist();renderLib();
   },falhaDados);
   db.collection('ajustes').onSnapshot(s=>{ajustes=mapa(s);renderRec();renderPlano();renderAj();renderAc();renderHist()},falhaDados);
   db.collection('sessoes').onSnapshot(s=>{sessoes=mapa(s);numera();achaSess();renderCont();renderNova();renderHist()},falhaDados);
   db.collection('planos').onSnapshot(s=>{plano=mapa(s).ativo||null;renderPlano()},falhaDados);
-  db.collection('config').onSnapshot(s=>{const en=mapa(s).enderecos;endsCad=(en&&en.l)||[];cfgOk=true;aprendeEnds();renderEnds();const g=mapa(s).geral;if(g)cfg=Object.assign({},CFG0,g);renderCfg();renderAc();renderHist()},falhaDados);
+  db.collection('config').onSnapshot(s=>{const lb=mapa(s).liberados;liberados=(lb&&lb.l)||{};const en=mapa(s).enderecos;endsCad=(en&&en.l)||[];cfgOk=true;aprendeEnds();renderEnds();const g=mapa(s).geral;if(g)cfg=Object.assign({},CFG0,g);renderCfg();renderAc();renderHist()},falhaDados);
   renderTudo();
 }
 async function resolveNomes(){
@@ -860,9 +880,13 @@ async function iniciar(){
   if(por==='estoque'){
     cur={id:'c'+Date.now().toString(36)+DEV.slice(0,4),dev:DEV,por:'estoque',valor:'',sessao:sess?sess.id:'',operador:uid||'',inicio:iso(),status:'aberta',itens:{},org:{},vazios:{}};
     pendEst=null;ultimo=null;putContagem(cur);$('inEnd').value='';$('inUa').value='';$('inKg').value='';bipPrev=0;renderCont();$('inUa').focus();return}
+  $('blqMsg').hidden=true;
   const campo=por==='endereco'?$('novoEnd'):$('valorIn');
   const valor=por==='endereco'?limpa(campo.value):campo.value.trim().toUpperCase();
   if(!valor){toast(por==='endereco'?'Informe o endereço.':por==='lote'?'Informe o lote.':'Informe o código do item.');campo.focus();return}
+  if(por==='endereco'){const q=bloqueio(valor);
+    if(q){$('blqMsg').textContent='Endereço '+valor+' bloqueado: já foi contado em '+dtf(q.u.fim)+' por '+nome(q.u.operador)+'. Nova contagem só a partir de '+brDia(q.livre)+'. Para contar antes, peça ao gestor para liberar este endereço na aba Config.';$('blqMsg').hidden=false;campo.select();return}
+    if(liberados[valor]){delete liberados[valor];grava('config','liberados',{l:liberados});renderLib()}}
   if(por!=='endereco'){
     const b=$('btnIniciar');b.disabled=true;b.textContent='Consultando o WMS…';
     await sinc([],[],por==='lote'?{lotes:[valor]}:{produtos:[valor]});
@@ -1300,11 +1324,59 @@ function conclusao(D){
   return (D.ver?(D.ver.ok?`O armazém atingiu a meta de acuracidade ${D.ver.nome} no período`:`O armazém ficou abaixo da meta de acuracidade ${D.ver.nome} no período`)+` (${pctf(D.ver.v)} para uma meta de ${nf(D.ver.m)}%). `:'')+
     (D.as.length?`Das ${D.as.length} divergências registradas, ${D.resolvidas} já ${D.resolvidas===1?'foi tratada':'foram tratadas'} e ${D.abertas} ${D.abertas===1?'segue':'seguem'} em aberto.`:'Não houve divergência a tratar.');
 }
+/* recontagem: o mesmo endereço só pode ser contado de novo depois de N dias, salvo liberação do gestor */
+const diaMais=(k,n)=>{const d=new Date(k+'T12:00:00');d.setDate(d.getDate()+n);return diaKey(d.toISOString())};
+function bloqueio(e){
+  const n=Math.round(Number(cfg.diasRec)||0);if(n<=0||liberados[e])return null;
+  const u=finalizadas().find(c=>c.por==='endereco'&&c.valor===e);if(!u)return null;
+  const livre=diaMais(diaKey(u.fim),n);return diaKey(iso())<livre?{u,livre}:null;
+}
+function renderLib(){
+  if(document.activeElement!==$('cfDiasRec'))$('cfDiasRec').value=String(Math.round(Number(cfg.diasRec)||0));
+  const l=Object.keys(liberados).sort();
+  $('libLista').innerHTML=l.length?l.map(e=>`<span class="mailChip"><span>${addr(e)} liberado em ${dtf(liberados[e])}</span><button type="button" data-librm="${esc(e)}" aria-label="Cancelar a liberação de ${esc(e)}">×</button></span>`).join(''):'<p class="sub">Nenhum endereço liberado no momento.</p>';
+  const nc=Object.keys(contagens).length,ns=Object.keys(sessoes).length,na=Object.keys(ajustes).length;
+  $('rsQt').textContent='Hoje há '+plural(ns,'auditoria','auditorias')+', '+plural(nc,'contagem','contagens')+' e '+plural(na,'divergência','divergências')+' guardadas.';
+}
+function liberaEnd(){
+  const i=$('libEnd'),e=limpa(i.value);if(!e){toast('Informe o endereço.');i.focus();return}
+  const q=bloqueio(e);if(!q&&!liberados[e]){toast('O endereço '+e+' não está bloqueado: já pode ser contado.');return}
+  liberados[e]=iso();grava('config','liberados',{l:liberados});i.value='';renderLib();toast('Endereço '+e+' liberado para uma nova contagem.');
+}
+/* reset: salva o backup, abre o e-mail e só então apaga auditorias, contagens e divergências */
+async function resetar(){
+  const mail=$('rsMail').value.trim().toLowerCase(),b=$('rsOk');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){toast('Informe o e-mail que vai receber o backup.');$('rsMail').focus();return}
+  if($('rsConf').value.trim().toUpperCase()!=='APAGAR'){toast('Para confirmar, digite APAGAR.');$('rsConf').focus();return}
+  if(cur||sess){toast('Há uma auditoria em andamento neste aparelho. Encerre antes de apagar.');return}
+  const nc=Object.keys(contagens).length,ns=Object.keys(sessoes).length,na=Object.keys(ajustes).length;
+  if(!nc&&!ns&&!na){toast('Não há auditoria para apagar.');return}
+  b.disabled=true;
+  try{
+    const dia=diaKey(iso()),fs=finalizadas(),nomeJ='backup-auditorias-'+dia+'.json',nomeX='backup-auditorias-'+dia+'.xlsx';
+    const dados=new Blob([JSON.stringify({app:'Auditoria de Armazém ICC',geradoEm:iso(),por:uid||'',contagens,ajustes,sessoes,config:{geral:cfg}})],{type:'application/json'});
+    const assunto='Backup das auditorias do armazém - '+brDia(dia),texto=['Backup gerado antes de apagar as auditorias do app Auditoria de Armazém.','','Auditorias: '+ns,'Contagens: '+nc,'Divergências: '+na,'Gerado em: '+new Date().toLocaleString('pt-BR')+(uid?' por '+uid:''),'','Anexos: '+nomeX+' (planilha para leitura) e '+nomeJ+' (dados completos).'].join('\n');
+    await salvaArq(nomeJ,dados);
+    if(fs.length)await planilha(fs,nomeX);
+    const arq=new File([dados],nomeJ,{type:'application/json'});
+    if(window.__enviarEmail){await window.__enviarEmail({para:[mail],assunto,texto,nome:nomeJ,pdf:await b64(dados)})}
+    else if(navigator.canShare&&navigator.canShare({files:[arq]})){await navigator.share({files:[arq],title:assunto,text:texto})}
+    else{const a=document.createElement('a');a.href='mailto:'+mail+'?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(texto);a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove()}
+    const I=window.__inv,C=['contagens','ajustes','sessoes'];
+    if(I){C.forEach(c=>{const ks=Object.keys(I.cols[c]||{});I.cols[c]={};ks.forEach(id=>{I.hook&&I.hook(c,id)})});I.grava();contagens={};ajustes={};sessoes={};C.forEach(c=>I.fire(c))}
+    else{Object.keys(contagens).forEach(id=>apaga('contagens',id));Object.keys(ajustes).forEach(id=>apaga('ajustes',id));Object.keys(sessoes).forEach(id=>apaga('sessoes',id));contagens={};ajustes={};sessoes={}}
+    if(Object.keys(liberados).length){liberados={};grava('config','liberados',{l:{}})}
+    cur=null;sess=null;ultimo=null;sessFim=null;pendEst=null;reconId=null;sel.clear();acAberta='';hsAberta='';$('rsConf').value='';
+    renderTudo();toast('Auditorias apagadas. O backup foi salvo neste aparelho.');
+  }catch(e){if(e&&e.name==='AbortError')toast('Envio do backup cancelado. Nada foi apagado.');else toast('Não foi possível gerar o backup. Nada foi apagado.')}
+  finally{b.disabled=false}
+}
 const listaMails=()=>String(cfg.emails||'').split(/[;,\s]+/).map(x=>x.trim()).filter(x=>x.includes('@'));
 function renderCfg(){
   if(document.activeElement!==$('cfVenc'))$('cfVenc').value=nf(cfg.venc??30);
   [['cfMetaEnd','metaEnd'],['cfMetaKg','metaKg'],['cfMetaGeral','metaGeral'],['cfMetaQtd','metaQtd'],['cfTol','tol']].forEach(([i,k])=>{if(document.activeElement!==$(i))$(i).value=nf(cfg[k]??98)});
   document.querySelectorAll('#cfMetaTipo button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mt===(cfg.metaTipo||'ua')));
+  renderLib();
   const l=listaMails();
   $('mailSt').textContent=l.length?plural(l.length,'e-mail salvo','e-mails salvos'):'Nenhum e-mail';$('mailSt').className='chip '+(l.length?'ok':'off');
   $('mailLista').innerHTML=l.length?l.map(m=>`<span class="mailChip"><span>${esc(m)}</span><button type="button" data-mailrm="${esc(m)}" aria-label="Remover ${esc(m)}">×</button></span>`).join(''):'<p class="sub">Nenhum e-mail cadastrado. Adicione abaixo quem deve receber o relatório.</p>';
@@ -1979,6 +2051,10 @@ document.addEventListener('click',ev=>{
   else if(d.estx){pendEst=null;$('inKg').value='';renderCont();$('inUa').focus()}
   else if(d.mailrm){cfg=Object.assign({},cfg,{emails:listaMails().filter(m=>m!==d.mailrm).join(', ')});grava('config','geral',cfg);renderCfg();toast('E-mail removido.')}
   else if(b.id==='cfMailAdd'){addMail()}
+  else if(b.id==='libAdd'){liberaEnd()}
+  else if(d.librm){delete liberados[d.librm];grava('config','liberados',{l:liberados});renderLib();toast('Liberação cancelada.')}
+  else if(b.id==='rsOk'){resetar()}
+  else if(b.id==='cfDiasSalvar'){const n=numIn($('cfDiasRec').value);if(n===null||isNaN(n)||n>365){toast('Use um número de dias de 0 a 365.');return}cfg=Object.assign({},cfg,{diasRec:Math.round(n)});grava('config','geral',cfg);renderCfg();toast(Math.round(n)?'Salvo: o mesmo endereço só pode ser contado de novo depois de '+plural(Math.round(n),'dia','dias')+'.':'Salvo: sem bloqueio de recontagem.')}
   else if(d.mt){cfg.metaTipo=d.mt;grava('config','geral',cfg);renderCfg();renderAc()}
   else if(d.busca){buscaLote(d.busca)}
   else if(d.man){ajusteManual(d.man)}
@@ -2022,6 +2098,7 @@ document.addEventListener('keydown',ev=>{const t=ev.target;if(ev.key==='Enter'&&
 document.addEventListener('change',ev=>{const t=ev.target;if(t&&(t.id==='acDe'||t.id==='acAte')){acPer='datas';acDe=$('acDe').value;acAte=$('acAte').value;renderAc()}
   else if(t&&(t.id==='hsDe'||t.id==='hsAte')){hsPer='datas';hsDe=$('hsDe').value;hsAte=$('hsAte').value;renderHist()}
   else if(t&&t.id==='hsTipo')renderHist()});
+$('libEnd').addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();liberaEnd()}});
 $('cfMailNovo').addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();addMail()}});
 /* leitor do coletor: digita o código no campo como um teclado, com ou sem Enter no final */
 $('btnTec').onclick=()=>{const so=$('inUa').getAttribute('inputmode')==='none';$('inUa').setAttribute('inputmode',so?'text':'none');$('btnTec').textContent=so?'Usar só o leitor':'Digitar a UA no teclado';$('inUa').blur();$('inUa').focus()};
